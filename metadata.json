@@ -1,0 +1,5 @@
+{
+  "name": "Client Service Dashboard",
+  "description": "A comprehensive dashboard for clients to view and analyze helpdesk ticket data, team performance, and project statuses. It features interactive charts and detailed daily reports for a clear overview of operational efficiency.",
+  "requestFramePermissions": []
+}
