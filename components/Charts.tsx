@@ -14,18 +14,7 @@ const PRIORITY_COLORS = {
   'default': '#6b7280',
 };
 
-const RADIAN = Math.PI / 180;
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-  return (
-    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
-};
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
 export const TicketsByPriorityChart: React.FC<ChartProps> = ({ data }) => {
   const chartData = useMemo(() => {
@@ -34,34 +23,20 @@ export const TicketsByPriorityChart: React.FC<ChartProps> = ({ data }) => {
       acc[priority] = (acc[priority] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [data]);
 
   return (
-    <div style={{ width: '100%', height: 300 }}>
+    <div className="h-[300px] w-full">
         <ResponsiveContainer>
             <PieChart>
-                <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={renderCustomizedLabel}
-                    outerRadius={110}
-                    fill="#8884d8"
-                    dataKey="value"
-                    nameKey="name"
-                >
+                <Pie data={chartData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                     {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PRIORITY_COLORS[entry.name as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.default} />
+                        <Cell key={`cell-${index}`} fill={PRIORITY_COLORS[entry.name as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.default} />
                     ))}
                 </Pie>
-                <Tooltip
-                    contentStyle={{ backgroundColor: '#2d3748', border: 'none', borderRadius: '0.5rem' }}
-                    labelStyle={{ color: '#e2e8f0' }}
-                />
-                <Legend />
+                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }} />
+                <Legend verticalAlign="bottom" height={36}/>
             </PieChart>
         </ResponsiveContainer>
     </div>
@@ -71,32 +46,57 @@ export const TicketsByPriorityChart: React.FC<ChartProps> = ({ data }) => {
 export const TicketsByCategoryChart: React.FC<ChartProps> = ({ data }) => {
     const chartData = useMemo(() => {
         const counts = data.reduce((acc, ticket) => {
-            const category = ticket.category || 'Uncategorized';
-            if(category.trim() !== '') {
-                acc[category] = (acc[category] || 0) + 1;
-            }
+            const category = ticket.category || ticket.tags || 'Uncategorized';
+            acc[category] = (acc[category] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
 
         return Object.entries(counts)
             .map(([name, value]) => ({ name, value }))
-            // FIX: Explicitly cast values to numbers before sorting to resolve arithmetic operation error.
             .sort((a, b) => Number(b.value) - Number(a.value))
             .slice(0, 10);
     }, [data]);
 
     return (
-        <div style={{ width: '100%', height: 300 }}>
+        <div className="h-[300px] w-full">
             <ResponsiveContainer>
                 <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                    <XAxis type="number" stroke="#a0aec0" />
-                    <YAxis dataKey="name" type="category" stroke="#a0aec0" width={100} tick={{ fontSize: 12 }} />
-                    <Tooltip
-                        contentStyle={{ backgroundColor: '#2d3748', border: 'none', borderRadius: '0.5rem' }}
-                        labelStyle={{ color: '#e2e8f0' }}
-                        cursor={{ fill: 'rgba(74, 85, 104, 0.5)' }}
-                    />
-                    <Bar dataKey="value" fill="#3b82f6" barSize={20} />
+                    <XAxis type="number" stroke="#9ca3af" fontSize={12} />
+                    <YAxis dataKey="name" type="category" stroke="#9ca3af" width={100} fontSize={12} />
+                    <Tooltip cursor={{fill: '#374151'}} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                        {chartData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                    </Bar>
+                </BarChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
+
+export const TicketsByIsoChart: React.FC<ChartProps> = ({ data }) => {
+    const chartData = useMemo(() => {
+        const counts = data.reduce((acc, ticket) => {
+            const iso = ticket.isoClause || 'None';
+            if (iso !== 'N/A' && iso !== 'None') acc[iso] = (acc[iso] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return Object.entries(counts)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => Number(b.value) - Number(a.value))
+            .slice(0, 8);
+    }, [data]);
+
+    return (
+        <div className="h-[300px] w-full">
+            <ResponsiveContainer>
+                <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <XAxis type="number" stroke="#9ca3af" fontSize={12} />
+                    <YAxis dataKey="name" type="category" stroke="#9ca3af" width={120} fontSize={10} />
+                    <Tooltip cursor={{fill: '#374151'}} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
+                    <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
                 </BarChart>
             </ResponsiveContainer>
         </div>

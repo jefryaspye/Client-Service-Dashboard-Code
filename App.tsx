@@ -5,10 +5,12 @@ import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ErrorDisplay from './components/ErrorDisplay';
 import DatabasePage from './components/DatabasePage';
+import StagingRoom from './components/StagingRoom';
+import ReportPage from './components/ReportPage';
 
 const App: React.FC = () => {
-  const { dailyData, historicalData, isLoading, error, refetch, rawCSV, updateCSV, resetCSV } = useTicketData();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'database'>('dashboard');
+  const { dailyData, historicalData, allTickets, lastUpdated, isLoading, error, refetch, rawCSV, updateCSV, resetCSV, updateTicket } = useTicketData();
+  const [currentView, setCurrentView] = useState<'dashboard' | 'database' | 'staging' | 'reports'>('dashboard');
 
   const sortedDateKeys = useMemo(() => {
     if (!dailyData) return [];
@@ -47,9 +49,10 @@ const App: React.FC = () => {
   const currentDailyData = dailyData && selectedDateKey ? dailyData[selectedDateKey] : null;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200 font-sans">
+    <div className="min-h-screen bg-gray-900 text-gray-200 font-sans print:bg-white print:text-black">
       <Header
         currentDate={currentDailyData?.date || 'N/A'}
+        lastUpdated={lastUpdated}
         onPrevDay={handlePrevDay}
         onNextDay={handleNextDay}
         isPrevDisabled={currentDateIndex >= sortedDateKeys.length - 1}
@@ -57,8 +60,8 @@ const App: React.FC = () => {
         currentView={currentView}
         onViewChange={setCurrentView}
       />
-      <main className="p-4 sm:p-6 lg:p-8">
-        {currentView === 'dashboard' ? (
+      <main className="p-4 sm:p-6 lg:p-8 print:p-0">
+        {currentView === 'dashboard' && (
            (!dailyData || sortedDateKeys.length === 0) ? (
             <div className="flex items-center justify-center h-64 text-gray-400">
               <p>No data available. Go to Database to upload data.</p>
@@ -66,10 +69,33 @@ const App: React.FC = () => {
            ) : (
              <Dashboard 
                dailyData={currentDailyData!} 
-               historicalData={historicalData} 
+               historicalData={historicalData}
+               allMainTickets={allTickets.main}
+               allPendingTickets={allTickets.pending}
+               allCollabTickets={allTickets.collab}
+               onUpdateTicket={updateTicket}
              />
            )
-        ) : (
+        )}
+        
+        {currentView === 'reports' && currentDailyData && (
+            <ReportPage 
+              dailyData={currentDailyData} 
+              historicalData={historicalData} 
+            />
+        )}
+
+        {currentView === 'staging' && (
+            <StagingRoom 
+                historicalData={historicalData}
+                onCommit={(newCSV) => {
+                    updateCSV(newCSV);
+                    setCurrentView('dashboard');
+                }}
+            />
+        )}
+
+        {currentView === 'database' && (
             <DatabasePage 
                 currentCSV={rawCSV}
                 onSave={updateCSV}

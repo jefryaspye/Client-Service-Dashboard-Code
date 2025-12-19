@@ -4,39 +4,8 @@ export interface MainTicket {
   no: string;
   item: string;
   ticketNumber: string;
-  createdBy: string;
-  duration: string;
-  assignee: string;
-  status: string;
-  priority: string;
-  team: string;
-  ticketAgeHours: string;
-  escalation: string;
-  remarks: string;
-}
-
-export interface CollabTicket {
-  id: string;
-  no: string;
-  item: string;
-  ticketNumber: string;
-  createdBy: string;
-  duration: string;
-  collab: string;
-  assignee: string;
-  status: string;
-  priority: string;
-  team: string;
-  ticketAgeHours: string;
-  escalation: string;
-  remarks: string;
-}
-
-export interface PendingTicket {
-  id: string;
+  category: string;
   createdOn: string;
-  item: string;
-  ticketNumber: string;
   createdBy: string;
   duration: string;
   assignee: string;
@@ -46,20 +15,31 @@ export interface PendingTicket {
   ticketAgeHours: string;
   escalation: string;
   remarks: string;
+  zone: string;
+  unit: string;
+  location: string;
+  customer: string;
+  isoClause: string;
+  tags: string;
 }
+
+export interface CollabTicket extends MainTicket {
+  collab: string;
+}
+
+export interface PendingTicket extends MainTicket {}
 
 export interface TechTeamMetric {
   id: string;
   name: string;
-  open: string;
-  inProgress: string;
-  onHold: string;
-  scheduled: string;
-  resolved: string;
-  closed: string;
-  totalTickets: string;
+  open: number;
+  inProgress: number;
+  onHold: number;
+  scheduled: number;
+  resolved: number;
+  closed: number;
+  totalTickets: number;
   totalWorkHours: string;
-  avgResolutionTime?: string;
 }
 
 export interface UpcomingProject {
@@ -93,52 +73,28 @@ export interface DailyDataCollection {
 
 export interface HistoricalTicket {
   ticketIDsSequence: string;
-  createdOn: string;
-  acknowledgeTime: string;
-  closeDate: string;
-  slaDeadline: string;
-  failedSlaPolicy: string;
+  priority: string;
   subject: string;
-  createdBy: string;
+  helpdeskTeam: string;
   assignedTo: string;
   customer: string;
-  location: string;
-  contactedVia: string;
-  priority: string;
-  vendor: string;
-  stage: string;
-  category: string;
-  meSubCat: string;
-  furnitureSubCat: string;
-  airconSubCat: string;
-  electricalSubCat: string;
-  toiletAndHygieneSubCat: string;
-  buildingRelatedSubCat: string;
-  cleanerSubCat: string;
-  upsSubCat: string;
-  gymItemsSubCat: string;
-  gameItemsSubCat: string;
-  cardAccessSubCat: string;
-  cctvSubCat: string;
-  pantryItemsSubCat: string;
-  itItemSubCat: string;
-  pestControlSubCat: string;
-  fireAndSafetySystemSubCat: string;
-  powerGeneratorSubCat: string;
-  originScheduled: string;
-  reschedule: string;
-  lastUpdatedOn: string;
-  lastUpdatedBy: string;
-  helpdeskTeam: string;
-  openTimeHours: string;
   timeSpent: string;
-  description: string;
-  resolutionType: string;
-  resolution: string;
-  zone: string;
-  unit: string;
-  furnitureSubChair: string;
-  meSubLight: string;
+  activities: string;
+  createdOn: string;
+  lastUpdatedOn: string;
+  tags: string;
+  ratingAvgText: string;
+  kanbanState: string;
+  stage: string;
+  category?: string; // Optional field if present in other exports
+  isoClause?: string;
+  zone?: string;
+  unit?: string;
+  location?: string;
+  createdBy?: string;
+  // Added properties to resolve TypeScript errors in Dashboard and TicketDetailModal
+  failedSlaPolicy?: string;
+  resolution?: string;
 }
 
 export type AnyTicket = MainTicket | CollabTicket | PendingTicket;
