@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTicketData } from './hooks/useTicketData';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -7,10 +7,11 @@ import ErrorDisplay from './components/ErrorDisplay';
 import DatabasePage from './components/DatabasePage';
 import StagingRoom from './components/StagingRoom';
 import ReportPage from './components/ReportPage';
+import ComplianceLibrary from './components/ComplianceLibrary';
 
 const App: React.FC = () => {
   const { dailyData, historicalData, allTickets, lastUpdated, isLoading, error, refetch, rawCSV, updateCSV, resetCSV, updateTicket } = useTicketData();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'database' | 'staging' | 'reports'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'database' | 'staging' | 'reports' | 'compliance'>('dashboard');
 
   const sortedDateKeys = useMemo(() => {
     if (!dailyData) return [];
@@ -26,6 +27,13 @@ const App: React.FC = () => {
   const handleNextDay = () => {
     setCurrentDateIndex((prevIndex) => Math.max(prevIndex - 1, 0));
   };
+
+  const handleJumpToDate = useCallback((dateKey: string) => {
+    const index = sortedDateKeys.indexOf(dateKey);
+    if (index !== -1) {
+      setCurrentDateIndex(index);
+    }
+  }, [sortedDateKeys]);
 
   if (isLoading) {
     return (
@@ -74,6 +82,8 @@ const App: React.FC = () => {
                allPendingTickets={allTickets.pending}
                allCollabTickets={allTickets.collab}
                onUpdateTicket={updateTicket}
+               onJumpToDate={handleJumpToDate}
+               availableDates={sortedDateKeys}
              />
            )
         )}
@@ -83,6 +93,10 @@ const App: React.FC = () => {
               dailyData={currentDailyData} 
               historicalData={historicalData} 
             />
+        )}
+
+        {currentView === 'compliance' && (
+            <ComplianceLibrary />
         )}
 
         {currentView === 'staging' && (

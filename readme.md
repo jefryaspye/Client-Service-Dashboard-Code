@@ -1,3 +1,4 @@
+
 # Client Service Dashboard
 
 A sophisticated, high-performance interactive dashboard engineered for enterprise helpdesk data analysis, technical team performance tracking, and infrastructure project monitoring. Built with **React 19** and **TypeScript**, it delivers real-time data intelligence and a robust client-side operational suite.
@@ -6,25 +7,24 @@ A sophisticated, high-performance interactive dashboard engineered for enterpris
 
 ## 🚀 Key Features
 
+### ⚖️ Regulatory Compliance Intelligence (New)
+- **Compliance Library**: Integrated cross-reference library covering **ISO 41001 (FM)**, **ISO 27001 (Security)**, **OSHA General Duty**, **NFPA Fire Codes**, and **Malaysia DOSH Act 514**.
+- **Context-Aware Ticket Audit**: Intelligent detail mapping that automatically identifies if a ticket is related to specific regulatory standards. It displays real-time scope and applicability details directly within the ticket overview.
+- **Audit Preparedness**: Seamlessly bridges the gap between daily maintenance tickets and external audit requirements for ISO 9001 and life safety standards.
+
 ### 📊 Intelligent Data Insights
-- **Heuristic Date Engine**: Advanced "learning" parser that automatically normalizes ISO strings, SQL timestamps, Unix epochs, and regional formats (DD/MM vs MM/DD) by analyzing value ranges.
+- **Heuristic Date Engine**: Advanced "learning" parser that automatically normalizes ISO strings, SQL timestamps, Unix epochs, and regional formats (DD/MM vs MM/DD).
 - **KPI Command Center**: Real-time visibility into Total Volume, Active Backlog, Resolution Velocity, and Average Labor Hours.
-- **Objective Tracker (SMART)**: Integrated scorecard measuring Daily Resolution Rates, Team Load Density, and Escalation Velocity against enterprise targets.
-- **Visual Analytics Suite**: Dynamic Priority Heatmaps, Category Pareto Charts, and ISO Compliance Distribution via responsive Recharts components.
+- **Objective Tracker (SMART)**: Integrated scorecard measuring Daily Resolution Rates, Team Load Density, and Escalation Velocity.
 
 ### 🛡️ Data Integrity & Operations
-- **Reconciliation Staging Room**: A specialized environment for auditing helpdesk exports. Automatically flags data quality issues, missing critical fields, date anomalies, and duplicate records before they hit the historical archive.
-- **Enterprise Database Editor**: Direct manipulation of underlying datasets with a high-performance text editor featuring syntax highlighting for CSV and JSON formats.
-- **In-Browser Persistence**: State-aware architecture utilizing browser `LocalStorage` to ensure operational continuity without requiring a backend database.
+- **Reconciliation Staging Room**: Specialized environment for auditing helpdesk exports. Automatically flags data quality issues, missing fields, and date anomalies.
+- **Enterprise Database Editor**: Direct manipulation of datasets via a high-performance text editor with syntax highlighting for CSV and JSON.
+- **Direct File Import**: Streamlined data ingestion supporting multi-format file uploads (CSV/JSON).
 
 ### 🔍 Search & Granular Control
-- **Multidimensional Filtering**: Instant slicing by Lifecycle Stage (Open/Closed/Hold) and Severity Levels.
-- **Global Neural Search**: Unified entry point for finding assets by ID sequence, subject matter, or personnel assignments across the entire historical timeline.
-- **Rich Ticket Forensics**: Deep-dive detail modals providing full contextual metadata, location-specific data (Zone/Unit), dedicated Client & Site details, and an editable technical work-log.
-
-### 📱 Responsive & Accessible
-- **Mobile-First Data Cards**: Tailored mobile views that transform complex tables into readable action cards without losing metadata fidelity.
-- **Full WCAG Compliance**: Robust keyboard orchestration (Tab trapping), ARIA-compliant sortable headers, and high-contrast accessibility.
+- **Multidimensional Filtering**: Slicing by Lifecycle Stage, Severity, and Time Windows.
+- **Rich Ticket Forensics**: Deep-dive modals providing context metadata, site details, and editable technical work-logs.
 
 ---
 
@@ -32,10 +32,9 @@ A sophisticated, high-performance interactive dashboard engineered for enterpris
 
 - **Framework**: React 19 (ES6 Modules)
 - **Typing**: TypeScript 5+
-- **Styling**: Tailwind CSS (Utility-first)
-- **Charts**: Recharts (SVG-based)
+- **Styling**: Tailwind CSS
+- **Charts**: Recharts
 - **Parsing**: Custom Heuristic CSV/JSON Normalizer
-- **Deployment**: Zero-build, native ESM Browser execution
 
 ---
 
@@ -44,33 +43,19 @@ A sophisticated, high-performance interactive dashboard engineered for enterpris
 ```text
 .
 ├── components/
+│   ├── ComplianceLibrary.tsx # Regulatory Reference System
 │   ├── Charts.tsx            # Analytics Visualizations
 │   ├── Dashboard.tsx         # Command Center Layout
-│   ├── DatabasePage.tsx      # Raw Data Management
+│   ├── DatabasePage.tsx      # Raw Data & File Management
 │   ├── StagingRoom.tsx       # Data Quality & Audit Lab
-│   ├── FilterControls.tsx    # Search & Filter Orchestration
-│   ├── TicketDetailModal.tsx # Enterprise Metadata Viewer
-│   ├── TicketTables.tsx      # Accessible Data Grids
-│   ├── KpiCard.tsx           # Strategic Metric Components
-│   └── icons.tsx             # Semantic SVG Iconography
+│   ├── TicketDetailModal.tsx # Enterprise Metadata & Context Viewer
+│   └── TicketTables.tsx      # Accessible Data Grids
 ├── hooks/
 │   └── useTicketData.ts      # Data Lifecycle & Heuristic Logic
-├── types.ts                  # Enterprise Schema Definitions
-├── App.tsx                   # State Router & Layout
-└── index.html                # ESM Entry & Tailwind Config
+└── types.ts                  # Enterprise Schema & Compliance Definitions
 ```
 
 ---
 
-## 🚦 Operational Workflow
-
-1. **Import**: Navigate to **Data Reconciliation** and paste your helpdesk CSV export.
-2. **Audit**: Review the "Health Score" and resolve flagged critical errors (red indicators).
-3. **Commit**: Choose "Append" to grow your historical database or "Replace" for a clean state.
-4. **Analyze**: Use the **Dashboard** to pivot between dates and track SMART objectives.
-5. **Manage**: Use the **Editor** for direct JSON/CSV tweaks to existing records.
-
----
-
 ## 📝 Compliance Note
-This dashboard is designed to assist with **ISO 9001, 41001, and 45001** tracking by mapping specific helpdesk resolutions to organizational standard clauses. Ensure the `ISO Clause` column is correctly populated in your source data for maximum audit visibility.
+This dashboard specifically assists with **ISO 9001, 41001, and 45001** tracking by mapping specific helpdesk resolutions to organizational standard clauses. The **Compliance Library** provides the necessary context for technicians to understand the regulatory impact of their maintenance activities.

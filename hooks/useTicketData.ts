@@ -24,9 +24,8 @@ export const normalizeDate = (dateStr: string | number): { dateKey: string; form
         if (n1 > 1000) {
           d = new Date(n1, n2 - 1, n3);
         } else if (n3 > 1000) {
-          // Check if MM/DD/YYYY or DD/MM/YYYY
-          if (n1 > 12) d = new Date(n3, n2 - 1, n1); // DD/MM
-          else d = new Date(n3, n1 - 1, n2); // MM/DD (Matches provided CSV)
+          if (n1 > 12) d = new Date(n3, n2 - 1, n1); 
+          else d = new Date(n3, n1 - 1, n2); 
         }
       }
     }
@@ -45,16 +44,15 @@ export const normalizeDate = (dateStr: string | number): { dateKey: string; form
   };
 };
 
-const DEFAULT_CSV = `Ticket IDs Sequence,Priority,Subject,Helpdesk Team,Assigned to,Customer,Time Spent,Activities,Created on,Last Updated on,Tags,Rating Avg Text,Kanban State,Stage
-05,Low priority,Change Light at L5 Prod 3,Helpdesk,Ariff Nordin,Wong Yeng Wei,0.00,,08/21/2023 14:15:34,06/05/2025 14:56:00,Incident,No Rating yet,In progress,Closed
-06,Low priority,L7 Pantry Chair Broken,Helpdesk,Wong Yeng Wei,Wong Yeng Wei,0.00,,08/21/2023 14:43:02,06/05/2025 14:56:00,Incident,No Rating yet,In progress,Closed
-07,Low priority,L3 GreenZone Light not working,Helpdesk,Ariff Nordin,"Teleperformance Malaysia Sdn. Bhd., Denesbabu Selvakumar",0.00,,08/22/2023 09:28:40,08/24/2023 12:24:29,Incident,No Rating yet,In progress,Closed
-08,Low priority,L7 Prod 1 Light not working,Helpdesk,Ariff Nordin,"Teleperformance Malaysia Sdn. Bhd., Ashnils",0.00,,08/22/2023 09:37:09,04/22/2025 10:09:49,Incident,No Rating yet,In progress,Closed
-09,Medium priority,L6 Men's toilet hose holder broken,Helpdesk,Ariff Nordin,"Teleperformance Malaysia Sdn. Bhd., Nuryasmin Ahmad Jamil",0.00,,08/22/2023 09:40:28,09/21/2023 15:28:50,Incident,No Rating yet,In progress,Closed
-2032,Urgent,L5 - Common Area - Power Trip,Helpdesk,Syawal Zainal,"Teleperformance Malaysia Sdn. Bhd., Denesbabu Selvakumar",6.50,,07/04/2025 17:50:01,07/07/2025 15:08:23,Incident,No Rating yet,In progress,Closed
+const DEFAULT_CSV = `Ticket IDs Sequence,Priority,Subject,Helpdesk Team,Assigned to,Customer,Time Spent,Activities,Created on,Last Updated on,Tags,Rating Avg Text,Kanban State,Stage,ISO Clause
+05,Low priority,Change Light at L5 Prod 3,Helpdesk,Ariff Nordin,Wong Yeng Wei,0.00,,08/21/2023 14:15:34,06/05/2025 14:56:00,Incident,No Rating yet,In progress,Closed,ISO 9001 (Clause 7.1.3)
+06,Low priority,L7 Pantry Chair Broken,Helpdesk,Wong Yeng Wei,Wong Yeng Wei,0.00,,08/21/2023 14:43:02,06/05/2025 14:56:00,Incident,No Rating yet,In progress,Closed,ISO 41001 (Clause 8.1)
+07,Low priority,L3 GreenZone Light not working,Helpdesk,Ariff Nordin,"Teleperformance Malaysia Sdn. Bhd., Denesbabu Selvakumar",0.00,,08/22/2023 09:28:40,08/24/2023 12:24:29,Incident,No Rating yet,In progress,Closed,ISO 9001 (Clause 7.1.3)
+08,Low priority,L7 Prod 1 Light not working,Helpdesk,Ariff Nordin,"Teleperformance Malaysia Sdn. Bhd., Ashnils",0.00,,08/22/2023 09:37:09,04/22/2025 10:09:49,Incident,No Rating yet,In progress,Closed,ISO 9001 (Clause 7.1.3)
+09,Medium priority,L6 Men's toilet hose holder broken,Helpdesk,Ariff Nordin,"Teleperformance Malaysia Sdn. Bhd., Nuryasmin Ahmad Jamil",0.00,,08/22/2023 09:40:28,09/21/2023 15:28:50,Incident,No Rating yet,In progress,Closed,ISO 45001 (Clause 8.1.1)
+2032,Urgent,L5 - Common Area - Power Trip,Helpdesk,Syawal Zainal,"Teleperformance Malaysia Sdn. Bhd., Denesbabu Selvakumar",6.50,,07/04/2025 17:50:01,07/07/2025 15:08:23,Incident,No Rating yet,In progress,Closed,ISO 41001 (Clause 8.1)
 `;
 
-// FIX: Corrected parseCSV to use string[][] for intermediate data and properly typed result mapping.
 export const parseCSV = (csv: string): Record<string, string>[] => {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -85,11 +83,18 @@ export const parseCSV = (csv: string): Record<string, string>[] => {
 
   const rawHeaders = rows.shift()!;
   const toCamelCase = (s: string) => s.replace(/[^a-zA-Z0-9]+(.)?/g, (match, chr) => chr ? chr.toUpperCase() : '').replace(/^./, (match) => match.toLowerCase());
-  const headers = rawHeaders.map(h => toCamelCase(h.trim()));
+  const headers = rawHeaders.map(h => toCamelCase(h.trim().replace(/^\uFEFF/, '')));
 
   return rows.map(record => {
     const entry: Record<string, string> = {};
-    headers.forEach((header, index) => { entry[header] = record[index] || ''; });
+    headers.forEach((header, index) => { 
+      let val = record[index] || '';
+      // If the row has 25 columns, treat empty strings as "Null"
+      if (record.length === 25 && val === '') {
+        val = 'Null';
+      }
+      entry[header] = val; 
+    });
     return entry;
   });
 };
@@ -112,7 +117,6 @@ export const useTicketData = () => {
   const updateCSV = useCallback((newCSV: string) => { setRawCSV(newCSV); localStorage.setItem('app_ticket_data', newCSV); }, []);
   const resetCSV = useCallback(() => { setRawCSV(DEFAULT_CSV); localStorage.removeItem('app_ticket_data'); }, []);
 
-  // FIX: Implemented updateTicket to enable updating individual ticket records.
   const updateTicket = useCallback((ticketNumber: string, assignee: string, updates: Partial<HistoricalTicket>) => {
     const parsed = parseCSV(rawCSV);
     const updated = parsed.map(ticket => {
@@ -149,14 +153,14 @@ export const useTicketData = () => {
                 item: ticket.subject,
                 ticketNumber: ticket.ticketIDsSequence,
                 category: ticket.category || ticket.tags || 'General',
-                createdOn: dateKey,
+                createdOn: ticket.createdOn, 
                 createdBy: ticket.createdBy || 'System',
                 duration: ticket.timeSpent || '0',
                 assignee: ticket.assignedTo,
                 status: ticket.stage,
                 priority: ticket.priority,
                 team: ticket.helpdeskTeam,
-                ticketAgeHours: '0', // Logic can be added to calculate age
+                ticketAgeHours: '0', 
                 escalation: ticket.priority === 'Urgent' ? 'Yes' : 'No',
                 remarks: ticket.activities || '',
                 zone: ticket.zone || '',
@@ -199,6 +203,5 @@ export const useTicketData = () => {
   }, [rawCSV]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  // FIX: Added updateTicket to the returned hook state.
   return { dailyData, historicalData, allTickets, lastUpdated, isLoading, error, refetch: fetchData, rawCSV, updateCSV, resetCSV, updateTicket };
 };

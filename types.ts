@@ -86,15 +86,22 @@ export interface HistoricalTicket {
   ratingAvgText: string;
   kanbanState: string;
   stage: string;
-  category?: string; // Optional field if present in other exports
+  category?: string;
   isoClause?: string;
   zone?: string;
   unit?: string;
   location?: string;
   createdBy?: string;
-  // Added properties to resolve TypeScript errors in Dashboard and TicketDetailModal
   failedSlaPolicy?: string;
   resolution?: string;
+}
+
+export interface ComplianceStandard {
+  domain: string;
+  standard: string;
+  code: string;
+  scope: string;
+  applicability: string;
 }
 
 export type AnyTicket = MainTicket | CollabTicket | PendingTicket;

@@ -1,6 +1,7 @@
+
 import { normalizeDate } from '../hooks/useTicketData';
-import React, { useState, useMemo } from 'react';
-import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldExclamationIcon, ShieldCheckIcon } from './icons';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldExclamationIcon, ShieldCheckIcon, ClockIcon } from './icons';
 import { parseCSV, jsonToCSV } from '../hooks/useTicketData';
 import type { HistoricalTicket } from '../types';
 
@@ -34,7 +35,16 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
   const [inputText, setInputText] = useState('');
   const [analysis, setAnalysis] = useState<AnalyzedRow[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [commitStatus, setCommitStatus] = useState<{ type: 'idle' | 'committing' | 'success', message: string }>({ type: 'idle', message: '' });
   const [activeTab, setActiveTab] = useState<'all' | 'errors' | 'warnings' | 'duplicates'>('all');
+  
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const stats = useMemo(() => {
     if (!analysis) return null;
@@ -124,7 +134,7 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
     }, 500);
   };
 
-  const handleCommit = (mode: 'append' | 'replace') => {
+  const handleCommit = async (mode: 'append' | 'replace') => {
     if (!analysis) return;
 
     const validRows = analysis.filter(r => r.status !== 'error').map(r => r.data);
@@ -141,26 +151,57 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
         }
     }
 
-    if (mode === 'append') {
-        const finalData = [...historicalData, ...validRows];
-        onCommit(jsonToCSV(finalData as any[]));
-    } else {
-        if (confirm("This will permanently replace all existing historical data with the clean rows from this batch. Proceed?")) {
-            onCommit(jsonToCSV(validRows as any[]));
+    if (mode === 'replace') {
+        if (!confirm("This will permanently replace all existing historical data with the clean rows from this batch. Proceed?")) {
+            return;
         }
+    }
+
+    setCommitStatus({ type: 'committing', message: mode === 'replace' ? 'Replacing history...' : 'Appending data...' });
+
+    try {
+        // Simulate a small delay for visual commitment
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        let finalCSV = '';
+        if (mode === 'append') {
+            const finalData = [...historicalData, ...validRows];
+            finalCSV = jsonToCSV(finalData as any[]);
+        } else {
+            finalCSV = jsonToCSV(validRows as any[]);
+        }
+
+        setCommitStatus({ type: 'success', message: 'History successfully updated!' });
+
+        // Short delay to let the user see the success message
+        timerRef.current = window.setTimeout(() => {
+            onCommit(finalCSV);
+        }, 1200);
+
+    } catch (e: any) {
+        alert("Commit failed: " + e.message);
+        setCommitStatus({ type: 'idle', message: '' });
     }
   };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
+      <div className="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700 relative overflow-hidden">
+        {/* Success Overlay Banner */}
+        {commitStatus.type === 'success' && (
+            <div className="absolute inset-x-0 top-0 bg-green-600 text-white py-3 px-6 text-center font-bold text-sm flex items-center justify-center space-x-2 animate-in slide-in-from-top duration-300 z-20 shadow-lg">
+                <ShieldCheckIcon className="w-5 h-5" />
+                <span>{commitStatus.message} Redirecting to Dashboard...</span>
+            </div>
+        )}
+
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-white flex items-center">
             <ShieldCheckIcon className="w-8 h-8 mr-3 text-blue-400" />
             Data Reconciliation & Staging
           </h2>
           <p className="text-gray-400 mt-2">
-            Audit your helpdesk export. The system flags rows with missing statuses, IDs, unparseable dates, or non-standard ISO clauses (supporting 9001, 14001, 41001, 45001).
+            Audit your helpdesk export. The system flags rows with missing statuses, IDs, unparseable dates, or non-standard ISO clauses.
           </p>
         </div>
 
@@ -261,23 +302,30 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
             <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-700">
               <button
                 onClick={() => setAnalysis(null)}
-                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                disabled={commitStatus.type !== 'idle'}
+                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 Reset & Paste New
               </button>
               <div className="flex-grow"></div>
               <button
                 onClick={() => handleCommit('append')}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transition-all flex items-center justify-center space-x-2"
+                disabled={commitStatus.type !== 'idle'}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
               >
-                <DocumentCheckIcon className="w-5 h-5" />
-                <span>Append Verified</span>
+                {commitStatus.type === 'committing' ? <span className="animate-pulse">Processing...</span> : (
+                  <>
+                    <DocumentCheckIcon className="w-5 h-5" />
+                    <span>Append Verified</span>
+                  </>
+                )}
               </button>
               <button
                 onClick={() => handleCommit('replace')}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition-all"
+                disabled={commitStatus.type !== 'idle'}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition-all disabled:opacity-50"
               >
-                Replace History
+                {commitStatus.type === 'committing' ? 'Replacing...' : 'Replace History'}
               </button>
             </div>
           </div>

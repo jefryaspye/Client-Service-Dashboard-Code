@@ -1,5 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import type { AnyTicket, HistoricalTicket } from '../types';
+
+// Fixed: Added explicit type casting for DOM elements to ensure .focus() and other HTMLElement properties are recognized by TypeScript.
+// Fixed: Added missing imports for MainTicket and CollabTicket.
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import type { AnyTicket, HistoricalTicket, MainTicket, CollabTicket } from '../types';
+import { COMPLIANCE_STANDARDS } from './ComplianceLibrary';
+import { ShieldCheckIcon } from './icons';
 
 interface TicketDetailModalProps {
   isOpen: boolean;
@@ -15,51 +20,52 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
   const [isEditingRemarks, setIsEditingRemarks] = useState(false);
   const [tempRemarks, setTempRemarks] = useState('');
 
-  // Comprehensive selector for focusable elements
   const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled]), [contenteditable]:not([contenteditable="false"])';
+
+  const matchedStandard = useMemo(() => {
+    if (!ticket?.isoClause || ticket.isoClause === 'N/A') return null;
+    return COMPLIANCE_STANDARDS.find(s => 
+      ticket.isoClause.toLowerCase().includes(s.standard.toLowerCase()) || 
+      ticket.isoClause.toLowerCase().includes(s.code.toLowerCase())
+    );
+  }, [ticket?.isoClause]);
 
   useEffect(() => {
     if (isOpen) {
-      // Capture the element that triggered the modal to restore focus later
       previousFocusRef.current = document.activeElement as HTMLElement;
       setIsEditingRemarks(false);
       setTempRemarks(ticket?.remarks || '');
       
-      // Focus the modal container itself for screen readers
+      // Fixed: Casting modalRef.current to HTMLDivElement to ensure focus() exists on the type.
       if (modalRef.current) {
-        modalRef.current.focus();
+        (modalRef.current as HTMLDivElement).focus();
       }
 
       const handleKeyDown = (e: KeyboardEvent) => {
         if (!modalRef.current) return;
-
-        // Escape to close
         if (e.key === 'Escape') {
           onClose();
           return;
         }
-
-        // Focus Trap Logic
         if (e.key === 'Tab') {
+          // Fixed: Casting the array of queried elements to HTMLElement[] so they can be focused.
           const focusableElements = Array.from(
-            modalRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-          );
+            modalRef.current.querySelectorAll(FOCUSABLE_SELECTOR)
+          ) as HTMLElement[];
           
           if (focusableElements.length === 0) {
             e.preventDefault();
             return;
           }
-
           const firstElement = focusableElements[0];
           const lastElement = focusableElements[focusableElements.length - 1];
-
-          if (e.shiftKey) { // Shift + Tab
-            if (document.activeElement === firstElement || document.activeElement === modalRef.current) {
+          if (e.shiftKey) {
+            if (document.activeElement === firstElement || document.activeElement === (modalRef.current as HTMLDivElement)) {
               e.preventDefault();
               lastElement.focus();
             }
           } 
-          else { // Tab
+          else {
             if (document.activeElement === lastElement) {
               e.preventDefault();
               firstElement.focus();
@@ -69,18 +75,15 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
       };
 
       document.addEventListener('keydown', handleKeyDown);
-      
-      // Prevent scrolling of the background body
       const originalStyle = window.getComputedStyle(document.body).overflow;
       document.body.style.overflow = 'hidden';
 
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
         document.body.style.overflow = originalStyle;
-        
-        // Restore focus to the trigger element
+        // Fixed: Explicit check and cast for previousFocusRef.current.
         if (previousFocusRef.current) {
-          previousFocusRef.current.focus();
+          (previousFocusRef.current as HTMLElement).focus();
         }
       };
     }
@@ -90,7 +93,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
 
   const handleSaveRemarks = () => {
     if (onUpdateTicket) {
-      const worker = ('collab' in ticket && ticket.collab) ? ticket.collab : ticket.assignee;
+      const worker = ('collab' in ticket && (ticket as CollabTicket).collab) ? (ticket as CollabTicket).collab : (ticket as MainTicket).assignee;
       onUpdateTicket(ticket.ticketNumber, worker, { resolution: tempRemarks });
     }
     setIsEditingRemarks(false);
@@ -182,7 +185,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
             
             <GroupHeader title="Ownership & History" />
             <DetailItem label="Assignee" value={ticket.assignee} />
-            {'collab' in ticket && <DetailItem label="Collaborator" value={ticket.collab} />}
+            {'collab' in ticket && <DetailItem label="Collaborator" value={(ticket as CollabTicket).collab} />}
             <DetailItem label="Technical Team" value={ticket.team} />
             <DetailItem label="Reporter" value={ticket.createdBy} />
             {'createdOn' in ticket && <DetailItem label="Timestamp" value={ticket.createdOn} />}
@@ -208,6 +211,23 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
               value={ticket.isoClause} 
               isHighlighted={ticket.isoClause !== 'N/A' && ticket.isoClause !== ''}
             />
+
+            {/* Compliance Insight Callout */}
+            {matchedStandard && (
+              <div className="mt-4 bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 animate-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheckIcon className="w-4 h-4 text-blue-400" />
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Regulatory Context: {matchedStandard.standard}</span>
+                </div>
+                <p className="text-xs text-gray-300 leading-relaxed italic mb-2">
+                  "{matchedStandard.scope}"
+                </p>
+                <div className="flex justify-between items-end">
+                   <span className="text-[10px] text-gray-500 font-mono uppercase">Code: {matchedStandard.code}</span>
+                   <span className="text-[10px] text-gray-500 font-mono uppercase">Applicability: {matchedStandard.applicability}</span>
+                </div>
+              </div>
+            )}
             
             <GroupHeader title="Technical Remarks & Resolution" />
             <div className="py-4">
@@ -254,7 +274,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
               )}
             </div>
           </dl>
-          <div className="h-8" aria-hidden="true"></div> {/* Spacer for bottom of scroll */}
+          <div className="h-8" aria-hidden="true"></div>
         </div>
 
         {/* Footer */}
