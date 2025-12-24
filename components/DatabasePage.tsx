@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon, BeakerIcon, DatabaseIcon, ChevronRightIcon, SwitchVerticalIcon } from './icons';
+import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon, BeakerIcon, DatabaseIcon, ChevronRightIcon, SwitchVerticalIcon, DownloadIcon } from './icons';
 import { parseCSV, jsonToCSV } from '../hooks/useTicketData';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -157,6 +156,43 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
     }
   };
 
+  const exportData = (targetFormat: 'csv' | 'json', sourceData?: string) => {
+    let dataToExport = sourceData || text;
+    let fileName = `dataset_export_${new Date().getTime()}`;
+    
+    try {
+        if (targetFormat === 'csv') {
+            // Check if we need to convert from JSON
+            if (dataToExport.trim().startsWith('[') || dataToExport.trim().startsWith('{')) {
+                const json = JSON.parse(dataToExport);
+                dataToExport = jsonToCSV(Array.isArray(json) ? json : [json]);
+            }
+            fileName += '.csv';
+        } else {
+            // Check if we need to convert from CSV
+            if (!dataToExport.trim().startsWith('[') && !dataToExport.trim().startsWith('{')) {
+                const parsed = parseCSV(dataToExport);
+                dataToExport = JSON.stringify(parsed, null, 2);
+            }
+            fileName += '.json';
+        }
+
+        const blob = new Blob([dataToExport], { type: targetFormat === 'csv' ? 'text/csv' : 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        setMessage({ type: 'success', text: `Exported as ${targetFormat.toUpperCase()}` });
+        setTimeout(() => setMessage(null), 3000);
+    } catch (e: any) {
+        setMessage({ type: 'error', text: `Export failed: ${e.message}` });
+        setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
   const askAiForHelp = async (task: 'fix' | 'risk_audit' | 'iso_mapping' | 'logic_orchestrator') => {
     setIsAiLoading(true);
     setAiProposal(null);
@@ -299,10 +335,28 @@ Format: Output as valid ${format} in the 'data' field.`;
                     {message.text}
                 </div>
             )}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+                <div className="hidden sm:flex items-center bg-gray-950 border border-gray-800 rounded-2xl p-1 gap-1">
+                    <button 
+                        onClick={() => exportData('csv')}
+                        title="Download as Cleaned CSV"
+                        className="px-4 py-2.5 text-[9px] font-black uppercase text-gray-500 hover:text-white hover:bg-gray-800 rounded-xl transition-all flex items-center gap-2"
+                    >
+                        <DownloadIcon className="w-3.5 h-3.5" />
+                        CSV
+                    </button>
+                    <button 
+                        onClick={() => exportData('json')}
+                        title="Download as JSON"
+                        className="px-4 py-2.5 text-[9px] font-black uppercase text-gray-500 hover:text-white hover:bg-gray-800 rounded-xl transition-all flex items-center gap-2"
+                    >
+                        <DownloadIcon className="w-3.5 h-3.5" />
+                        JSON
+                    </button>
+                </div>
                 <button 
                   onClick={() => setShowAiPanel(true)}
-                  className="flex items-center bg-brand-600 hover:bg-brand-500 text-white font-black py-3.5 px-8 rounded-2xl transition-all text-xs border border-brand-400/30 uppercase tracking-widest shadow-xl shadow-brand-900/40"
+                  className="flex items-center bg-brand-600 hover:bg-brand-500 text-white font-black py-3.5 px-6 rounded-2xl transition-all text-[10px] border border-brand-400/30 uppercase tracking-widest shadow-xl shadow-brand-900/40"
                 >
                   <span className="mr-2">✨</span> AI ASSISTANT
                 </button>
@@ -437,7 +491,23 @@ Format: Output as valid ${format} in the 'data' field.`;
                             </div>
                         )}
 
-                        <div className="sticky bottom-0 bg-gray-900 pt-4 pb-2">
+                        <div className="sticky bottom-0 bg-gray-900 pt-4 pb-2 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={() => exportData('csv', aiProposal.data)} 
+                                    className="flex items-center justify-center gap-2 py-4 bg-gray-950 hover:bg-gray-800 text-gray-400 hover:text-white text-[9px] font-black uppercase rounded-2xl border border-gray-800 transition-all"
+                                >
+                                    <DownloadIcon className="w-3.5 h-3.5" />
+                                    Export CSV
+                                </button>
+                                <button 
+                                    onClick={() => exportData('json', aiProposal.data)} 
+                                    className="flex items-center justify-center gap-2 py-4 bg-gray-950 hover:bg-gray-800 text-gray-400 hover:text-white text-[9px] font-black uppercase rounded-2xl border border-gray-800 transition-all"
+                                >
+                                    <DownloadIcon className="w-3.5 h-3.5" />
+                                    Export JSON
+                                </button>
+                            </div>
                             <button 
                                 onClick={() => { setText(aiProposal.data); setAiProposal(null); localStorage.removeItem(DRAFT_TEXT_KEY); }} 
                                 className="w-full py-5 bg-brand-600 hover:bg-brand-500 text-white text-[10px] font-black uppercase rounded-2xl shadow-2xl shadow-brand-900/50 transition-all transform active:scale-95 flex items-center justify-center gap-2 border border-brand-400/20"

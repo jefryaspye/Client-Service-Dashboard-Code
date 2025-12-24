@@ -108,6 +108,8 @@ export interface HistoricalTicket {
   createdBy?: string;
   failedSlaPolicy?: string;
   resolution?: string;
+  // Add description to fix: Error in file hooks/useTicketData.ts on line 201: Property 'description' does not exist on type 'HistoricalTicket'.
+  description?: string;
   // Risk & ISO extensions
   riskLikelihood?: string;
   riskImpact?: string;

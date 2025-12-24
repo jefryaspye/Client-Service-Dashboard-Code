@@ -204,10 +204,18 @@ ${standardsList}
 ${ticketList}
 
 **Instructions:**
-For each ticket, analyze its subject and any provided activities/remarks to suggest the single most appropriate clause. Then, provide a confidence score based on the following criteria:
-- **High Confidence**: The ticket subject or activities contain explicit keywords directly matching an ISO standard's scope (e.g., "power trip," "cooling failure," "safety hazard," "malware").
-- **Medium Confidence**: The subject/activities are related to a standard but lack specific keywords, requiring inference (e.g., "broken chair," "light flickering," "system access").
-- **Low Confidence**: The subject/activities are very generic or ambiguous, making the mapping a best-effort guess (e.g., "check request," "general inquiry").
+For each ticket, analyze its subject and any provided activities/remarks to suggest the single most appropriate clause.
+Then, provide a confidence score and a detailed reason based on the following criteria:
+
+- **Reasoning Requirement (CRITICAL):** The 'reason' field must provide a comprehensive justification. It should:
+    1.  **Quote Keywords:** Directly quote the specific words/phrases from the ticket's 'Subject' or 'Activities' that influenced the decision.
+    2.  **Connect to Scope:** Explicitly link these keywords to the official scope of the suggested ISO standard.
+    3.  **Provide Rationale:** Clearly explain the logical connection. For example: "The keyword 'power trip' from the subject directly relates to the maintenance of 'Infrastructure', which is the core scope of ISO 9001 (Clause 7.1.3)." Vague reasons like "Related to facilities" are unacceptable.
+
+- **Confidence Score Criteria:**
+    - **High Confidence**: The ticket subject or activities contain explicit keywords directly matching an ISO standard's scope (e.g., "power trip," "cooling failure," "safety hazard," "malware").
+    - **Medium Confidence**: The subject/activities are related to a standard but lack specific keywords, requiring inference (e.g., "broken chair," "light flickering," "system access").
+    - **Low Confidence**: The subject/activities are very generic or ambiguous, making the mapping a best-effort guess (e.g., "check request," "general inquiry").
 
 **Output Format:**
 Provide your response as a single JSON object with a key "suggestions", which is an array. Each element must be an object with keys: "ticketId", "suggestedClause", "reason", and "confidence".
