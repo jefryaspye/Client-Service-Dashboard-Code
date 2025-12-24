@@ -57,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({
             <nav className="hidden xl:flex items-center space-x-1 p-1 bg-gray-950/50 rounded-2xl border border-gray-800">
               <NavButton view="dashboard" label="Performance" icon={ChartBarIcon} />
               <NavButton view="reports" label="Service Reports" icon={PrinterIcon} />
-              <NavButton view="compliance" label="Regulatory" icon={ShieldCheckIcon} />
+              <NavButton view="compliance" label="ISO Clauses" icon={ShieldCheckIcon} />
               <NavButton view="operations" label="Operations" icon={ClockIcon} />
               <NavButton view="staging" label="Audit Lab" icon={BeakerIcon} />
               <NavButton view="database" label="Dataset" icon={DatabaseIcon} />

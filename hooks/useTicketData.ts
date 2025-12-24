@@ -44,12 +44,13 @@ export const normalizeDate = (dateStr: string | number): { dateKey: string; form
   };
 };
 
-const DEFAULT_CSV = `ticketIDsSequence,priority,subject,helpdeskTeam,assignedTo,customer,timeSpent,activities,createdOn,lastUpdatedOn,tags,ratingAvgText,kanbanState,stage,iSOClause,riskLikelihood,riskImpact,hazardCategory,rootCause,correctiveAction
+const DEFAULT_CSV = `"ticketIDsSequence","priority","subject","helpdeskTeam","assignedTo","customer","timeSpent","activities","createdOn","lastUpdatedOn","tags","ratingAvgText","kanbanState","stage","iSOClause","riskLikelihood","riskImpact","hazardCategory","rootCause","correctiveAction"
 "05","Low priority","Change Light at L5 Prod 3","Helpdesk","Ariff Nordin","Wong Yeng Wei","0.00","","08/21/2023 14:15:34","06/05/2025 14:56:00","Incident","No Rating yet","In progress","Closed","ISO 9001 (Clause 7.1.3)","1","2","Infrastructure","EOL Bulb","Replacement"
 "06","Low priority","L7 Pantry Chair Broken","Helpdesk","Wong Yeng Wei","Wong Yeng Wei","0.00","","08/21/2023 14:43:02","06/05/2025 14:56:00","Incident","No Rating yet","In progress","Closed","ISO 41001 (Clause 8.1)","2","2","Soft Services","Mechanical Fatigue","Asset Repair"
 "07","Low priority","L3 GreenZone Light not working","Helpdesk","Ariff Nordin","Teleperformance Malaysia Sdn. Bhd., Denesbabu Selvakumar","0.00","","08/22/2023 09:28:40","08/24/2023 12:24:29","Incident","No Rating yet","In progress","Closed","ISO 9001 (Clause 7.1.3)","1","2","Infrastructure","Power Inconsistency","Driver Check"
 "2032","Urgent","L5 - Common Area - Power Trip","Helpdesk","Syawal Zainal","Teleperformance Malaysia Sdn. Bhd., Denesbabu Selvakumar","6.50","","07/04/2025 17:50:01","07/07/2025 15:08:23","Incident","No Rating yet","In progress","Closed","ISO 41001 (Clause 8.1)","4","5","Critical Systems","Overload on Circuit B","Load Redistribution"
 "09","Medium priority","L6 Men's toilet hose holder broken","Helpdesk","Ariff Nordin","Teleperformance Malaysia Sdn. Bhd., Nuryasmin Ahmad Jamil","0.00","","08/22/2023 09:40:28","09/21/2023 15:28:50","Incident","No Rating yet","In progress","Closed","ISO 45001 (Clause 8.1.1)","2","3","HSE","Vandalism/Wear","Hardware Upgrade"
+"10","Low priority","Light flickering at Lv 3 redzone","Helpdesk","Ariff Nordin","Teleperformance Malaysia Sdn. Bhd., Ashnils","0.00","","08/22/2023 16:59:00","04/22/2025 10:09:49","Incident","No Rating yet","In progress","Closed","ISO 9001 (Clause 7.1.3)","1","2","Infrastructure","Loose Connection","Wire Tightening"
 `;
 
 export const parseCSV = (csv: string): Record<string, string>[] => {
@@ -88,9 +89,6 @@ export const parseCSV = (csv: string): Record<string, string>[] => {
     const entry: Record<string, string> = {};
     headers.forEach((header, index) => { 
       let val = record[index] || '';
-      if (record.length === 25 && val === '') {
-        val = 'Null';
-      }
       entry[header] = val; 
     });
     return entry;

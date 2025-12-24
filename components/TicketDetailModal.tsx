@@ -84,8 +84,10 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
             <dl>
                 <GroupHeader title="Incident Summary" />
                 <DetailItem label="Subject" value={ticket.item} />
+                <DetailItem label="Customer" value={ticket.customer} />
                 <DetailItem label="Status" value={ticket.status} />
                 <DetailItem label="Priority" value={ticket.priority} />
+                <DetailItem label="Location" value={ticket.location} />
                 <DetailItem label="Zone" value={ticket.zone} />
                 <DetailItem label="Unit" value={ticket.unit} />
                 

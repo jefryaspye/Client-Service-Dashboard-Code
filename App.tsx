@@ -73,7 +73,7 @@ const App: React.FC = () => {
         {currentView === 'dashboard' && (
            (!dailyData || sortedDateKeys.length === 0) ? (
             <div className="flex items-center justify-center h-64 text-gray-400">
-              <p>No data available. Go to Database to upload data.</p>
+              <p>No data available. Go to Dataset to upload data.</p>
             </div>
            ) : (
              <Dashboard 
@@ -98,7 +98,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'compliance' && (
-            <ComplianceLibrary />
+            <ComplianceLibrary historicalData={historicalData} />
         )}
 
         {currentView === 'operations' && (
