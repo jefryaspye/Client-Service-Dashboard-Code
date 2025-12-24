@@ -86,9 +86,23 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
                 <DetailItem label="Subject" value={ticket.item} />
                 <DetailItem label="Status" value={ticket.status} />
                 <DetailItem label="Priority" value={ticket.priority} />
+                <DetailItem label="Zone" value={ticket.zone} />
+                <DetailItem label="Unit" value={ticket.unit} />
                 
                 <GroupHeader title="Regulatory Documentation" />
-                <DetailItem label="ISO Clause" value={ticket.isoClause} isHighlighted />
+                <div className="py-2.5 sm:grid sm:grid-cols-3 sm:gap-4 border-b border-gray-700/30 last:border-0">
+                  <dt className="text-sm font-medium text-gray-400">ISO Clause</dt>
+                  <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
+                    {ticket.isoClause && ticket.isoClause !== 'N/A' ? (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-teal-500/20 text-teal-300 border border-teal-500/30 font-mono font-black text-xs shadow-sm">
+                        <ShieldCheckIcon className="w-3.5 h-3.5 mr-2" />
+                        {ticket.isoClause}
+                      </span>
+                    ) : (
+                      <span className="text-gray-600 font-medium italic">Not Applicable</span>
+                    )}
+                  </dd>
+                </div>
                 <DetailItem label="Hazard Category" value={ticket.hazardCategory} />
                 <DetailItem label="Objective Link" value={ticket.objectiveID} />
 

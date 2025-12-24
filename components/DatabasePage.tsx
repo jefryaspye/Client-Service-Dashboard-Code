@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon, BeakerIcon, DatabaseIcon } from './icons';
+import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon, BeakerIcon, DatabaseIcon, ChevronRightIcon } from './icons';
 import { parseCSV, jsonToCSV } from '../hooks/useTicketData';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -15,6 +15,14 @@ interface ValidationError {
   message: string;
 }
 
+interface IsoSuggestion {
+  ticketId: string;
+  subject: string;
+  currentClause: string;
+  suggestedClause: string;
+  reason: string;
+}
+
 const REQUIRED_HEADERS_CAMEL = [
   'ticketIDsSequence',
   'createdOn',
@@ -24,16 +32,6 @@ const REQUIRED_HEADERS_CAMEL = [
   'priority',
   'isoClause'
 ];
-
-const DISPLAY_MAP: Record<string, string> = {
-  'ticketIDsSequence': "'Ticket IDs Sequence'",
-  'createdOn': "'Created on'",
-  'assignedTo': "'Assigned to'",
-  'subject': "'Subject'",
-  'stage': "'Stage'",
-  'priority': "'Priority'",
-  'isoClause': "'ISO Clause'"
-};
 
 const highlightJSON = (jsonStr: string, errorLines: number[]) => {
     if (!jsonStr) return '';
@@ -77,13 +75,12 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiProposal, setAiProposal] = useState<{ data: string, insight: string } | null>(null);
+  const [aiProposal, setAiProposal] = useState<{ data: string, insight: string, suggestions?: IsoSuggestion[] } | null>(null);
   const [showAiPanel, setShowAiPanel] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
-  const messageTimerRef = useRef<number | null>(null);
 
   const handleScroll = () => {
     if (textareaRef.current && preRef.current) {
@@ -109,37 +106,6 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
     }
   }, [currentCSV]);
 
-  const validateContent = (content: string, currentFormat: 'csv' | 'json'): ValidationError[] => {
-    const errors: ValidationError[] = [];
-    try {
-        if (currentFormat === 'json') {
-            const json = JSON.parse(content);
-            if (!Array.isArray(json)) {
-                errors.push({ line: 1, message: "JSON must be an array of objects." });
-                return errors;
-            }
-            json.forEach((item, index) => {
-                const keys = Object.keys(item);
-                const missing = REQUIRED_HEADERS_CAMEL.filter(k => !keys.includes(k));
-                if (missing.length > 0) {
-                    errors.push({ line: index + 2, message: `Item #${index + 1} missing critical headers.` });
-                }
-            });
-        } else {
-            const lines = content.split('\n').filter(l => l.trim());
-            if (lines.length === 0) return [];
-            const headerLine = lines[0].trim();
-            const toCamelCase = (s: string) => s.replace(/[^a-zA-Z0-9]+(.)?/g, (match, chr) => chr ? chr.toUpperCase() : '').replace(/^./, (match) => match.toLowerCase());
-            const headers = headerLine.split(',').map(h => h.replace(/"/g, '').trim()).map(h => toCamelCase(h));
-            const missingHeaders = REQUIRED_HEADERS_CAMEL.filter(k => !headers.includes(k));
-            if (missingHeaders.length > 0) {
-                errors.push({ line: 1, message: `Missing required columns: ${missingHeaders.join(', ')}` });
-            }
-        }
-    } catch (e: any) { errors.push({ line: 1, message: `Syntax Error: ${e.message}` }); }
-    return errors;
-  };
-
   const askAiForHelp = async (task: 'fix' | 'risk_audit' | 'iso_mapping') => {
     setIsAiLoading(true);
     setAiProposal(null);
@@ -153,19 +119,16 @@ PROCESS the provided dataset based on the following task:
 TASK TYPE: ${task.toUpperCase()}
 
 INSTRUCTIONS:
-1. RISK INFERENCE: Analyze the 'subject' and 'remarks'. 
-   - Assign 'riskLikelihood' (1-5) and 'riskImpact' (1-5). 
-   - 'Power Trip', 'Leaking Water near Servers', 'Fire' = Impact 5.
-   - 'Broken chair', 'Light flickering' = Impact 1-2.
-2. ISO COGNITION: Correct 'isoClause' assignments.
-   - Building systems/Asset maintenance -> 'ISO 9001 (Clause 7.1.3)'
-   - FM Operations/Soft services -> 'ISO 41001 (Clause 8.1)'
-   - Safety Hazards/Incident RCA -> 'ISO 45001 (Clause 8.1.1)'
-3. ROOT CAUSE ANALYTICS: For 'Closed' tickets with empty 'rootCause', infer a plausible RCA (e.g., 'Wear and Tear', 'Mechanical Failure') and record it.
-4. NORMALIZATION: Ensure 'ticketIDsSequence' is unique and dates are ISO-formatted.
-5. SUMMARY: In 'insight', explain specific repairs (e.g. "Elevated Risk score for 5 electrical incidents").
+1. ISO MAPPING: Analyze the 'subject' and 'remarks' (or 'activities').
+   - Building systems/Asset maintenance/Repairs -> 'ISO 9001 (Clause 7.1.3)'
+   - FM Operations/Soft services/Cleaning -> 'ISO 41001 (Clause 8.1)'
+   - Safety Hazards/Personal Injury/Risk Control -> 'ISO 45001 (Clause 8.1.1)'
+   - Environmental/Waste/Chemicals -> 'ISO 14001'
+2. DATA HEALING: Ensure 'isoClause' is corrected in the 'data' payload.
+3. SUGGESTIONS: Provide a clear list of mapping suggestions for user confirmation.
+4. ROOT CAUSE: For closed tickets, infer 'rootCause' if missing.
 
-Format: Output as valid ${format}.`;
+Format: Output as valid ${format} in the 'data' field.`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -176,8 +139,22 @@ Format: Output as valid ${format}.`;
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        data: { type: Type.STRING },
-                        insight: { type: Type.STRING }
+                        data: { type: Type.STRING, description: "The full corrected dataset in ${format} format" },
+                        insight: { type: Type.STRING, description: "A high-level summary of the changes made" },
+                        suggestions: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    ticketId: { type: Type.STRING },
+                                    subject: { type: Type.STRING },
+                                    currentClause: { type: Type.STRING },
+                                    suggestedClause: { type: Type.STRING },
+                                    reason: { type: Type.STRING }
+                                },
+                                required: ["ticketId", "subject", "suggestedClause", "reason"]
+                            }
+                        }
                     },
                     required: ["data", "insight"]
                 }
@@ -187,7 +164,8 @@ Format: Output as valid ${format}.`;
         const result = JSON.parse(response.text || '{}');
         setAiProposal({
             data: result.data || text,
-            insight: result.insight || 'Processing completed.'
+            insight: result.insight || 'Processing completed.',
+            suggestions: result.suggestions
         });
     } catch (e: any) {
         setAiProposal({ data: text, insight: `Error: ${e.message}` });
@@ -262,40 +240,73 @@ Format: Output as valid ${format}.`;
       </div>
 
       {showAiPanel && (
-          <aside className="w-full lg:w-[420px] bg-gray-900 rounded-[2.5rem] shadow-2xl border border-gray-700 overflow-hidden flex flex-col animate-in slide-in-from-right-16">
-            <div className="p-8 border-b border-gray-800 flex items-center justify-between bg-gray-950/40">
+          <aside className="w-full lg:w-[420px] bg-gray-900 rounded-[2.5rem] shadow-2xl border border-gray-700 overflow-hidden flex flex-col animate-in slide-in-from-right-16 max-h-[90vh]">
+            <div className="p-8 border-b border-gray-800 flex items-center justify-between bg-gray-950/40 sticky top-0 z-10">
                 <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Neural Intelligence</h3>
                 <button onClick={() => setShowAiPanel(false)} className="text-gray-500 hover:text-white transition-all">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
             
-            <div className="p-8 space-y-6 flex-grow overflow-y-auto">
+            <div className="p-8 space-y-6 flex-grow overflow-y-auto custom-scrollbar">
                 <div className="grid gap-3">
+                    <button onClick={() => askAiForHelp('iso_mapping')} disabled={isAiLoading} className="w-full text-left p-6 bg-gray-800 rounded-2xl border border-gray-700 hover:border-brand-500 transition-all group">
+                        <div className="flex items-center mb-2">
+                            <ShieldCheckIcon className="w-5 h-5 mr-3 text-brand-500" />
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest">ISO Clause Mapping</span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 leading-relaxed">Auto-map relevant clauses based on ticket subject and technical remarks.</p>
+                    </button>
+
                     <button onClick={() => askAiForHelp('risk_audit')} disabled={isAiLoading} className="w-full text-left p-6 bg-gray-800 rounded-2xl border border-gray-700 hover:border-red-500 transition-all">
                         <div className="flex items-center mb-2">
                             <ExclamationTriangleIcon className="w-5 h-5 mr-3 text-red-500" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest">Risk Assessment Inference</span>
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest">Risk Inference</span>
                         </div>
-                        <p className="text-[11px] text-gray-500">Analyze subjects to automatically assign Likelihood & Impact scores.</p>
-                    </button>
-
-                    <button onClick={() => askAiForHelp('iso_mapping')} disabled={isAiLoading} className="w-full text-left p-6 bg-gray-800 rounded-2xl border border-gray-700 hover:border-brand-500 transition-all">
-                        <div className="flex items-center mb-2">
-                            <ShieldCheckIcon className="w-5 h-5 mr-3 text-brand-500" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest">Compliance Logic Check</span>
-                        </div>
-                        <p className="text-[11px] text-gray-500">Cross-reference ticket context with ISO 41001/45001 clauses.</p>
+                        <p className="text-[11px] text-gray-500 leading-relaxed">Assign Likelihood & Impact scores based on incident severity.</p>
                     </button>
                 </div>
 
                 {isAiLoading && <div className="py-10 text-center animate-pulse text-brand-400 text-xs font-black uppercase tracking-[0.3em]">Neural Engine Processing...</div>}
 
                 {aiProposal && (
-                    <div className="bg-gray-950 border border-brand-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
-                        <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">Strategic Insight</span>
-                        <p className="text-xs text-white leading-relaxed italic">"{aiProposal.insight}"</p>
-                        <button onClick={() => { setText(aiProposal.data); setAiProposal(null); }} className="w-full py-3 bg-brand-600 text-white text-[10px] font-black uppercase rounded-xl">Implement Corrections</button>
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="bg-gray-950 border border-brand-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
+                            <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">Strategic Insight</span>
+                            <p className="text-xs text-white leading-relaxed italic">"{aiProposal.insight}"</p>
+                        </div>
+
+                        {aiProposal.suggestions && aiProposal.suggestions.length > 0 && (
+                            <div className="space-y-4">
+                                <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Mapping Proposals</h4>
+                                <div className="space-y-3">
+                                    {aiProposal.suggestions.map((s, idx) => (
+                                        <div key={idx} className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="text-[9px] font-mono font-black text-brand-400">#{s.ticketId}</span>
+                                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">ISO SUGGESTION</span>
+                                            </div>
+                                            <div className="text-[11px] font-bold text-white mb-2 truncate" title={s.subject}>{s.subject}</div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-[10px] line-through text-gray-600">{s.currentClause || 'N/A'}</span>
+                                                <ChevronRightIcon className="w-3 h-3 text-brand-500" />
+                                                <span className="text-[10px] font-black text-teal-400 bg-teal-950/40 px-2 py-0.5 rounded border border-teal-800/30">
+                                                    {s.suggestedClause}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 leading-relaxed italic">Reason: {s.reason}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={() => { setText(aiProposal.data); setAiProposal(null); }} 
+                            className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white text-[10px] font-black uppercase rounded-2xl shadow-xl transition-all transform active:scale-95"
+                        >
+                            Accept & Implement Corrections
+                        </button>
                     </div>
                 )}
             </div>
