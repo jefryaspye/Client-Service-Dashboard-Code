@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon } from './icons';
+// Added DatabaseIcon to imports
+import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon, BeakerIcon, DatabaseIcon } from './icons';
 import { parseCSV, jsonToCSV } from '../hooks/useTicketData';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -158,7 +158,6 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
             const headers = headerLine.split(',').map(h => toCamelCase(h.trim().replace(/^\uFEFF/, '')));
             
             const missingHeaders = REQUIRED_HEADERS_CAMEL.filter(k => !headers.includes(k));
-            // If header length is exactly 25, ignore missing headers per user request
             if (missingHeaders.length > 0 && headers.length !== 25) {
                 const missingDisplay = missingHeaders.map(m => DISPLAY_MAP[m] || m).join(', ');
                 errors.push({ line: 1, message: `Header row is missing required columns: ${missingDisplay}` });
@@ -166,7 +165,6 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
 
             lines.slice(1).forEach((line, index) => {
                 const values = line.split(',');
-                // If row has exactly 25 columns, ignore the length mismatch error per user request
                 if (values.length !== headers.length && values.length !== 25) {
                     errors.push({ line: index + 2, message: `Row ${index + 2} has ${values.length} columns, but header has ${headers.length}.` });
                 }
@@ -188,34 +186,34 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const model = task === 'audit_logic' ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
         
-        const systemPrompt = `You are an elite Data Scientist and ISO Compliance Specialist (ISO 9001, 41001, 45001).
-        Required Output Columns: ${REQUIRED_HEADERS_CAMEL.join(', ')}.
-        Current Format: ${format}.
-        
-        SPECIFIC TASK:
-        ${task === 'fix' ? `HEAL AND REPAIR: Perform a context-aware structural audit. 
-          1. Resolve schema violations and formatting inconsistencies.
-          2. DATA INTEGRITY PRIORITY: Ticket IDs ("ticketIDsSequence") and Timestamps ("createdOn") must be preserved exactly as-is unless they are physically malformed or logically impossible.
-          3. ISO COMPLIANCE LOGIC: If "isoClause" is missing or generic "N/A", use the "subject" and "remarks" to intelligently map the correct ISO standard (9001, 41001, 45001).
-          4. Ensure all mandatory columns exist. If missing, synthesize data based on the most likely values in neighboring rows.` : 
-          task === 'optimize' ? 'Strategically rearrange the data rows to follow a logical hierarchy (e.g., chronologically by "createdOn", grouped by "assignedTo", or clustered by "priority").' : 
-          'PERFORM ISO COMPLIANCE AUTO-MAPPING: Read the "subject" (or "Subject" in CSV) and any "remarks" (or "Activities" in CSV) for every single ticket. Based on these details, map the most accurate ISO Standard Clause (e.g., "ISO 9001 (Clause 7.1.3)" or "ISO 45001 (Clause 8.1.1)") into the "isoClause" column. If no mapping is found, use "N/A".'}
-        
-        CONSTRAINTS:
-        1. Return valid JSON only.
-        2. "data": The fully processed CSV or JSON block.
-        3. "insight": A detailed summary (2-3 sentences) of the logic used, specifically mentioning which ISO standards were identified or repaired.`
+        const systemPrompt = `You are an elite Data Integrity Architect and ISO Compliance Auditor. 
+Your goal is to REPAIR, NORMALIZE, and OPTIMIZE the provided dataset while strictly adhering to these constraints:
+
+1. DATA IMMUTABILITY & INTEGRITY: 'ticketIDsSequence' and 'createdOn' are core identifiers. If 'ticketIDsSequence' is missing, generate a unique sequential ID.
+2. ISO COGNITION: Deeply analyze subjects/remarks to assign or correct 'isoClause'.
+   - Infrastructure/Asset Maintenance: 'ISO 9001 (Clause 7.1.3)'
+   - Facilities Management/Soft Services: 'ISO 41001 (Clause 8.1)'
+   - Workplace Health & Safety Hazards: 'ISO 45001 (Clause 8.1.1)'
+   - Environmental/Waste Management: 'ISO 14001'
+   - Fire/Electrical Safety: 'NFPA 70/72'
+3. DATE NORMALIZATION: Convert all 'createdOn' and 'lastUpdatedOn' values to a standardized 'MM/DD/YYYY HH:mm:ss' format. Fix common typos or inconsistent separators (e.g. dots instead of slashes).
+4. DATA ARRANGEMENT: Rearrange rows to maximize audit readiness. Group tickets by 'assignedTo', then sort by 'priority' (Urgent -> High -> Medium -> Low), and then by 'createdOn' (Descending).
+5. TICKET ANALYSIS: In the 'insight' field, describe exactly what was repaired (e.g. "Normalized 5 date strings", "Corrected ISO mapping for 3 plumbing tickets") and identify recurring failure patterns.
+6. SCHEMA ENFORCEMENT: Ensure all records contain: ${REQUIRED_HEADERS_CAMEL.join(', ')}.
+7. FORMAT: Output MUST be valid ${format}.
+
+TASK TYPE: ${task === 'fix' ? 'CRITICAL DATA REPAIR & HEALING' : task === 'optimize' ? 'STRUCTURAL NORMALIZATION & ARRANGEMENT OPTIMIZATION' : 'REGULATORY COMPLIANCE AUDIT & ANALYTICS'}`;
 
         const response = await ai.models.generateContent({
             model,
-            contents: `System: ${systemPrompt}\n\nUser Database Content:\n${text}`,
+            contents: `System Instruction: ${systemPrompt}\n\nDataset for processing:\n${text}`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        data: { type: Type.STRING },
-                        insight: { type: Type.STRING }
+                        data: { type: Type.STRING, description: "The processed dataset string." },
+                        insight: { type: Type.STRING, description: "Detailed summary of repairs, analysis of data patterns, and optimization suggestions." }
                     },
                     required: ["data", "insight"]
                 }
@@ -359,23 +357,26 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
   const editorClass = "font-mono text-[11px] leading-5 p-4 m-0 w-full h-full whitespace-pre overflow-auto";
 
   return (
-    <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6">
-      <div className="flex-grow bg-gray-800 rounded-3xl shadow-2xl p-6 border border-gray-700/50 backdrop-blur-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+    <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
+      <div className="flex-grow bg-gray-800 rounded-[2.5rem] shadow-2xl p-8 border border-gray-700/50 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-10 gap-6">
             <div>
-                <h2 className="text-2xl font-black text-white tracking-tight uppercase">Database Workspace</h2>
-                <p className="text-gray-500 text-sm mt-1 font-medium">Manage operational datasets and compliance mapping.</p>
+                <h2 className="text-3xl font-black text-white tracking-tighter uppercase flex items-center">
+                   <DatabaseIcon className="w-8 h-8 mr-3 text-blue-500" />
+                   Database Hub
+                </h2>
+                <p className="text-gray-500 text-sm mt-1 font-bold uppercase tracking-widest">Enterprise Dataset & AI Orchestration</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
                 <button 
                   onClick={() => setShowAiPanel(!showAiPanel)}
-                  className={`flex items-center font-black py-3 px-6 rounded-2xl transition-all text-sm border shadow-xl ${showAiPanel ? 'bg-blue-600 border-blue-500 text-white ring-4 ring-blue-500/20' : 'bg-gray-900/50 hover:bg-gray-700 text-blue-400 border-gray-700'}`}
+                  className={`flex items-center font-black py-3.5 px-8 rounded-2xl transition-all text-xs border shadow-2xl ${showAiPanel ? 'bg-brand-600 border-brand-500 text-white ring-4 ring-brand-500/20' : 'bg-gray-900/50 hover:bg-gray-700 text-brand-400 border-gray-700 uppercase tracking-widest'}`}
                 >
-                  <span className="mr-2 text-lg">✨</span> AI ASSISTANT
+                  <span className="mr-2 text-base">✨</span> AI AUTO-CORRECTION
                 </button>
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center bg-gray-900/50 hover:bg-gray-800 text-gray-400 font-bold py-3 px-6 rounded-2xl transition-all text-sm border border-gray-700 shadow-xl"
+                  className="flex items-center bg-gray-900/50 hover:bg-gray-800 text-gray-400 font-black py-3.5 px-8 rounded-2xl transition-all text-xs border border-gray-700 shadow-2xl uppercase tracking-widest"
                 >
                   <UploadIcon className="w-4 h-4 mr-2" />
                   IMPORT
@@ -383,41 +384,41 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
             </div>
         </div>
 
-        <div className="grid gap-6">
+        <div className="grid gap-8">
             {message && (
-                <div className={`animate-in fade-in slide-in-from-top-2 px-6 py-4 rounded-2xl text-sm font-bold shadow-2xl border ${
+                <div className={`animate-in fade-in slide-in-from-top-4 px-8 py-5 rounded-[1.5rem] text-sm font-black shadow-2xl border ${
                     message.type === 'success' ? 'bg-green-950/40 text-green-300 border-green-800/50' : 'bg-red-950/40 text-red-300 border-red-800/50'
                 }`}>
                     <div className="flex items-center">
-                        {message.type === 'success' ? <ShieldCheckIcon className="w-5 h-5 mr-3 text-green-400" /> : <ExclamationTriangleIcon className="w-5 h-5 mr-3 text-red-400" />}
+                        {message.type === 'success' ? <ShieldCheckIcon className="w-6 h-6 mr-4 text-green-400" /> : <ExclamationTriangleIcon className="w-6 h-6 mr-4 text-red-400" />}
                         {message.text}
                     </div>
                 </div>
             )}
 
             <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 bg-gray-900/80 rounded-2xl p-1.5 shadow-inner border border-gray-700">
-                    <button onClick={() => handleFormatChange('csv')} className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${format === 'csv' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}>CSV</button>
-                    <button onClick={() => handleFormatChange('json')} className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${format === 'json' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}>JSON</button>
+                <div className="flex items-center space-x-2 bg-gray-950/80 rounded-[1.25rem] p-1.5 shadow-inner border border-gray-800">
+                    <button onClick={() => handleFormatChange('csv')} className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all ${format === 'csv' ? 'bg-brand-600 text-white shadow-lg' : 'text-gray-600 hover:text-white'}`}>CSV</button>
+                    <button onClick={() => handleFormatChange('json')} className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all ${format === 'json' ? 'bg-brand-600 text-white shadow-lg' : 'text-gray-600 hover:text-white'}`}>JSON</button>
                 </div>
-                <div className="flex items-center space-x-8">
+                <div className="flex items-center space-x-12">
                     <div className="flex flex-col items-end">
-                        <span className="text-[9px] text-gray-600 font-black uppercase tracking-[0.2em]">Volume</span>
-                        <span className="text-xs text-white font-mono">{text.split('\n').length - 1} Records</span>
+                        <span className="text-[10px] text-gray-600 font-black uppercase tracking-widest">Schema Health</span>
+                        <span className="text-xs text-white font-mono font-black">{validationErrors.length === 0 ? '100.0%' : `${Math.max(0, 100 - validationErrors.length).toFixed(1)}%`}</span>
                     </div>
                     <div className="flex flex-col items-end">
-                        <span className="text-[9px] text-blue-600/80 font-black uppercase tracking-[0.2em]">Engine</span>
-                        <span className="text-xs text-blue-400 font-mono">ISO Core 2.2</span>
+                        <span className="text-[10px] text-brand-600 font-black uppercase tracking-widest">Active Core</span>
+                        <span className="text-xs text-brand-400 font-mono font-black">NEURAL-3.5-PRO</span>
                     </div>
                 </div>
             </div>
 
-            <div className="relative w-full h-[580px] rounded-3xl border border-gray-700/50 bg-gray-900/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+            <div className="relative w-full h-[620px] rounded-[2rem] border border-gray-700/50 bg-gray-950/60 overflow-hidden shadow-[inset_0_4px_20px_rgba(0,0,0,0.6)]">
                 <pre
                     ref={preRef}
-                    className={`absolute inset-0 pointer-events-none text-gray-400 ${editorClass}`}
+                    className={`absolute inset-0 pointer-events-none text-gray-500 ${editorClass}`}
                     aria-hidden="true"
-                    dangerouslySetInnerHTML={{ __html: highlightedCode + '<div style="height: 120px;"></div>' }} 
+                    dangerouslySetInnerHTML={{ __html: highlightedCode + '<div style="height: 150px;"></div>' }} 
                 />
                 <textarea
                     ref={textareaRef}
@@ -427,143 +428,143 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
                         if (validationErrors.length > 0) setValidationErrors([]);
                     }}
                     onScroll={handleScroll}
-                    className={`absolute inset-0 bg-transparent border-0 outline-none resize-none focus:ring-0 ${editorClass} text-transparent caret-blue-500 selection:bg-blue-500/20`}
+                    className={`absolute inset-0 bg-transparent border-0 outline-none resize-none focus:ring-0 ${editorClass} text-transparent caret-brand-500 selection:bg-brand-500/20`}
                     spellCheck={false}
                     autoComplete='off'
                 />
             </div>
 
             {validationErrors.length > 0 && (
-                <div className="bg-red-950/20 border border-red-500/20 rounded-3xl p-6 space-y-4">
+                <div className="bg-red-950/30 border-2 border-red-500/30 rounded-[2rem] p-8 space-y-6">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center text-red-400 text-xs font-black uppercase tracking-widest">
-                            <ExclamationTriangleIcon className="w-5 h-5 mr-3" />
-                            Integrity Violations ({validationErrors.length})
+                        <div className="flex items-center text-red-400 text-sm font-black uppercase tracking-widest">
+                            <ExclamationTriangleIcon className="w-7 h-7 mr-4" />
+                            Integrity Block Detected ({validationErrors.length})
                         </div>
                         <button 
                             onClick={() => askAiForHelp('fix')}
-                            className="text-[10px] font-black bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl transition-all shadow-xl uppercase tracking-widest"
+                            className="text-[11px] font-black bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-2xl transition-all shadow-2xl uppercase tracking-widest transform active:scale-95"
                         >
-                            Context-Aware Repair
+                            Execute AI Healing
                         </button>
                     </div>
-                    <div className="max-h-36 overflow-y-auto custom-scrollbar divide-y divide-red-500/5">
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar divide-y divide-red-500/10">
                         {validationErrors.map((err, i) => (
-                            <div key={i} className="text-[11px] text-red-300/60 flex py-2.5 items-start">
-                                <span className="font-mono bg-red-900/40 px-2.5 py-1 rounded-lg mr-4 h-fit text-red-400 border border-red-500/10">LINE {err.line}</span>
-                                <span className="pt-1">{err.message}</span>
+                            <div key={i} className="text-[12px] text-red-300/80 flex py-3.5 items-start">
+                                <span className="font-mono bg-red-900/50 px-3 py-1.5 rounded-xl mr-5 h-fit text-red-400 border border-red-500/20 font-black">L{err.line}</span>
+                                <span className="pt-1 font-semibold">{err.message}</span>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
             
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-700/30">
-                <button onClick={handleReset} disabled={isSaving} className="px-6 py-3 text-xs font-black uppercase tracking-widest text-red-400/80 hover:text-white hover:bg-red-900/20 rounded-2xl transition-all">Reset Factory</button>
-                <button onClick={handleSave} disabled={isSaving} className={`flex items-center px-10 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-2xl transition-all ${isSaving ? 'opacity-50 cursor-wait' : ''}`}>
-                    {isSaving ? 'Synchronizing...' : <><DocumentCheckIcon className="w-5 h-5 mr-3" />Commit Data</>}
+            <div className="flex items-center justify-end space-x-6 pt-8 border-t border-gray-700/50">
+                <button onClick={handleReset} disabled={isSaving} className="px-8 py-4 text-xs font-black uppercase tracking-widest text-red-400/80 hover:text-white hover:bg-red-900/30 rounded-2xl transition-all">Factory Reset</button>
+                <button onClick={handleSave} disabled={isSaving} className={`flex items-center px-12 py-4.5 bg-brand-600 hover:bg-brand-500 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl shadow-brand-900/40 transition-all transform active:scale-95 ${isSaving ? 'opacity-50 cursor-wait' : ''}`}>
+                    {isSaving ? 'PERSISTING DATA...' : <><DocumentCheckIcon className="w-6 h-6 mr-4" />COMMIT DATABASE</>}
                 </button>
             </div>
         </div>
       </div>
 
       {showAiPanel && (
-          <aside className="w-full lg:w-[420px] bg-gray-800 rounded-3xl shadow-2xl border border-gray-700/50 overflow-hidden flex flex-col animate-in slide-in-from-right-12 duration-700 backdrop-blur-md">
-            <div className="bg-gray-900/50 p-6 border-b border-gray-700 flex items-center justify-between">
+          <aside className="w-full lg:w-[480px] bg-gray-800 rounded-[2.5rem] shadow-2xl border border-gray-700/50 overflow-hidden flex flex-col animate-in slide-in-from-right-16 duration-700 backdrop-blur-xl ring-1 ring-white/5">
+            <div className="bg-gray-900/70 p-8 border-b border-gray-700 flex items-center justify-between">
                 <div>
-                    <h3 className="text-sm font-black text-white flex items-center uppercase tracking-[0.2em]">
-                        <span className="mr-3 text-blue-400 text-lg">✨</span> AI MANAGER
+                    <h3 className="text-base font-black text-white flex items-center uppercase tracking-[0.25em]">
+                        <span className="mr-4 text-brand-400 text-2xl">✨</span> AI AUTO-CORRECT
                     </h3>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1 tracking-widest">Powered by Gemini 3 Pro</p>
+                    <p className="text-[10px] text-gray-600 font-black uppercase mt-1.5 tracking-widest">Neural Logic Core</p>
                 </div>
-                <button onClick={() => setShowAiPanel(false)} className="p-3 text-gray-500 hover:text-white hover:bg-gray-700 rounded-2xl transition-all">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button onClick={() => setShowAiPanel(false)} className="p-4 text-gray-500 hover:text-white hover:bg-gray-700 rounded-[1.25rem] transition-all">
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
             
-            <div className="p-6 space-y-6 flex-grow overflow-y-auto custom-scrollbar">
-                <div className="bg-blue-900/10 border border-blue-500/20 rounded-2xl p-5 shadow-inner">
-                    <p className="text-xs text-blue-200/80 leading-relaxed font-semibold">
-                        Leverage neural reasoning to audit compliance and structure. The engine can intelligently map tickets to ISO standards while healing malformed data.
+            <div className="p-8 space-y-8 flex-grow overflow-y-auto custom-scrollbar">
+                <div className="bg-brand-900/20 border border-brand-500/30 rounded-[1.5rem] p-6 shadow-2xl">
+                    <p className="text-sm text-brand-200 leading-relaxed font-bold">
+                        Welcome to the Neural Workspace. The AI engine is trained to heal malformed records, normalize timestamps, and auto-map ISO compliance.
                     </p>
                 </div>
                 
-                <div className="grid gap-3">
-                    <button onClick={() => askAiForHelp('fix')} disabled={isAiLoading} className="w-full text-left px-6 py-5 bg-gray-900/40 border border-gray-700/50 rounded-2xl hover:border-red-500 hover:bg-red-900/5 transition-all group disabled:opacity-50 relative overflow-hidden shadow-lg">
-                        <div className="flex items-center mb-1.5">
-                            <ExclamationTriangleIcon className="w-5 h-5 mr-3 text-red-400" />
-                            <div className="text-xs font-black text-white group-hover:text-red-400 uppercase tracking-widest">Context-Aware Repair</div>
+                <div className="grid gap-4">
+                    <button onClick={() => askAiForHelp('fix')} disabled={isAiLoading} className="w-full text-left px-7 py-6 bg-gray-900/60 border border-gray-700 rounded-[1.5rem] hover:border-red-500 hover:bg-red-950/10 transition-all group disabled:opacity-50 relative overflow-hidden shadow-2xl">
+                        <div className="flex items-center mb-2">
+                            <ExclamationTriangleIcon className="w-6 h-6 mr-4 text-red-500" />
+                            <div className="text-xs font-black text-white group-hover:text-red-400 uppercase tracking-widest">AI Integrity Healing</div>
                         </div>
-                        <div className="text-[10px] text-gray-500 group-hover:text-gray-400 leading-normal">Resolves schema violations with high priority on data integrity and ISO alignment.</div>
-                        <div className="absolute right-0 top-0 h-full w-1.5 bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="text-[11px] text-gray-600 group-hover:text-gray-400 leading-normal font-medium uppercase tracking-tighter">Automatic resolution of schema violations and date normalization.</div>
+                        <div className="absolute right-0 top-0 h-full w-2 bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </button>
 
-                    <button onClick={() => askAiForHelp('audit_logic')} disabled={isAiLoading} className="w-full text-left px-6 py-5 bg-gray-900/40 border border-gray-700/50 rounded-2xl hover:border-blue-500 hover:bg-blue-900/5 transition-all group disabled:opacity-50 relative overflow-hidden shadow-lg">
-                        <div className="flex items-center mb-1.5">
-                            <ShieldCheckIcon className="w-5 h-5 mr-3 text-blue-400" />
-                            <div className="text-xs font-black text-white group-hover:text-blue-400 uppercase tracking-widest">Compliance Auto-Map</div>
+                    <button onClick={() => askAiForHelp('audit_logic')} disabled={isAiLoading} className="w-full text-left px-7 py-6 bg-gray-900/60 border border-gray-700 rounded-[1.5rem] hover:border-brand-500 hover:bg-brand-950/10 transition-all group disabled:opacity-50 relative overflow-hidden shadow-2xl">
+                        <div className="flex items-center mb-2">
+                            <ShieldCheckIcon className="w-6 h-6 mr-4 text-brand-500" />
+                            <div className="text-xs font-black text-white group-hover:text-brand-400 uppercase tracking-widest">Compliance Logic Audit</div>
                         </div>
-                        <div className="text-[10px] text-gray-500 group-hover:text-gray-400 leading-normal">Scans subjects & remarks to assign ISO clauses automatically.</div>
-                        <div className="absolute right-0 top-0 h-full w-1.5 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="text-[11px] text-gray-600 group-hover:text-gray-400 leading-normal font-medium uppercase tracking-tighter">Deep scan for ISO clause accuracy based on ticket context.</div>
+                        <div className="absolute right-0 top-0 h-full w-2 bg-brand-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </button>
 
-                    <button onClick={() => askAiForHelp('optimize')} disabled={isAiLoading} className="w-full text-left px-6 py-5 bg-gray-900/40 border border-gray-700/50 rounded-2xl hover:border-purple-500 hover:bg-purple-900/5 transition-all group disabled:opacity-50 relative overflow-hidden shadow-lg">
-                        <div className="flex items-center mb-1.5">
-                            <ChartBarIcon className="w-5 h-5 mr-3 text-purple-400" />
-                            <div className="text-xs font-black text-white group-hover:text-purple-400 uppercase tracking-widest">Logic Optimization</div>
+                    <button onClick={() => askAiForHelp('optimize')} disabled={isAiLoading} className="w-full text-left px-7 py-6 bg-gray-900/60 border border-gray-700 rounded-[1.5rem] hover:border-purple-500 hover:bg-purple-950/10 transition-all group disabled:opacity-50 relative overflow-hidden shadow-2xl">
+                        <div className="flex items-center mb-2">
+                            <BeakerIcon className="w-6 h-6 mr-4 text-purple-500" />
+                            <div className="text-xs font-black text-white group-hover:text-purple-400 uppercase tracking-widest">Strategic Normalization</div>
                         </div>
-                        <div className="text-[10px] text-gray-500 group-hover:text-gray-400 leading-normal">Rearrange rows by priority and date for report clarity.</div>
-                        <div className="absolute right-0 top-0 h-full w-1.5 bg-purple-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="text-[11px] text-gray-600 group-hover:text-gray-400 leading-normal font-medium uppercase tracking-tighter">Rearrange dataset into high-visibility, audit-ready sequences.</div>
+                        <div className="absolute right-0 top-0 h-full w-2 bg-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </button>
                 </div>
 
                 {isAiLoading && (
-                    <div className="flex flex-col items-center justify-center py-16 space-y-5 animate-in fade-in zoom-in duration-500">
+                    <div className="flex flex-col items-center justify-center py-20 space-y-8 animate-in fade-in zoom-in duration-500">
                         <div className="relative">
-                            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]"></div>
+                            <div className="animate-spin rounded-full h-24 w-24 border-t-4 border-b-4 border-brand-500 shadow-[0_0_40px_rgba(14,145,233,0.4)]"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-blue-500 text-[11px] font-black animate-pulse uppercase">Auditing</span>
+                                <span className="text-brand-500 text-[10px] font-black animate-pulse uppercase tracking-widest">AUDITING</span>
                             </div>
                         </div>
                         <div className="text-center">
-                            <span className="text-xs text-blue-400 font-black uppercase tracking-[0.2em] block">Processing Dataset</span>
-                            <p className="text-[9px] text-gray-600 mt-2 uppercase font-black tracking-widest">Consulting Regulatory Knowledge Base...</p>
+                            <span className="text-sm text-brand-400 font-black uppercase tracking-[0.3em] block">Processing Dataset</span>
+                            <p className="text-[10px] text-gray-600 mt-3 uppercase font-black tracking-widest leading-relaxed">Cross-referencing Regulatory Standards...</p>
                         </div>
                     </div>
                 )}
 
                 {aiProposal && (
-                    <div className="bg-gray-900/80 border border-blue-500/30 rounded-3xl overflow-hidden animate-in fade-in zoom-in-95 shadow-2xl">
-                        <div className="p-6 bg-blue-900/10 border-b border-blue-500/10">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em]">Strategic Audit Report</span>
-                                <span className="text-[9px] bg-blue-600 px-3 py-1 rounded-full text-white font-black uppercase tracking-widest">Verified</span>
+                    <div className="bg-gray-950 border border-brand-500/40 rounded-[2rem] overflow-hidden animate-in fade-in zoom-in-95 shadow-2xl ring-4 ring-brand-500/5">
+                        <div className="p-8 bg-brand-900/10 border-b border-brand-500/20">
+                            <div className="flex items-center justify-between mb-5">
+                                <span className="text-[10px] font-black text-brand-400 uppercase tracking-[0.25em]">Strategic Audit Report</span>
+                                <span className="text-[9px] bg-brand-600 px-4 py-1.5 rounded-full text-white font-black uppercase tracking-widest">VERIFIED</span>
                             </div>
-                            <p className="text-[11px] text-blue-100/90 italic leading-relaxed font-medium">
+                            <p className="text-[12px] text-white leading-relaxed italic font-bold">
                                 "{aiProposal.insight}"
                             </p>
                         </div>
-                        <div className="p-6">
-                            <div className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest">Proposal Preview (Modified Records)</div>
-                            <div className="bg-black/60 rounded-2xl p-4 border border-gray-800 mb-6 shadow-inner">
-                                <pre className="text-[10px] text-blue-400/70 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto custom-scrollbar scrollbar-thin">
-                                    {aiProposal.data.substring(0, 1000)}...
+                        <div className="p-8">
+                            <div className="text-[10px] font-black text-gray-600 uppercase mb-5 tracking-[0.2em]">Auto-Corrected Data Preview</div>
+                            <div className="bg-black/80 rounded-[1.5rem] p-5 border border-gray-800 mb-8 shadow-inner">
+                                <pre className="text-[11px] text-brand-400/80 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar">
+                                    {aiProposal.data.substring(0, 1500)}...
                                 </pre>
                             </div>
                             <button 
                                 onClick={applyAiProposal}
-                                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-blue-900/40 transition-all transform active:scale-95 flex items-center justify-center"
+                                className="w-full py-5 bg-brand-600 hover:bg-brand-500 text-white text-[12px] font-black uppercase tracking-[0.25em] rounded-[1.25rem] shadow-2xl shadow-brand-900/60 transition-all transform active:scale-95 flex items-center justify-center ring-2 ring-brand-400/30"
                             >
-                                <span className="mr-2">⚡</span> IMPLEMENT DATA STRATEGY
+                                <span className="mr-3 text-lg">⚡</span> IMPLEMENT AUTO-CORRECTIONS
                             </button>
                         </div>
                     </div>
                 )}
             </div>
             
-            <div className="p-6 bg-gray-900/50 border-t border-gray-700 flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                <span className="text-[9px] text-gray-600 font-black uppercase tracking-[0.3em]">Neural Interface Optimized</span>
+            <div className="p-8 bg-gray-900/70 border-t border-gray-700 flex items-center justify-center space-x-4">
+                <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_12px_rgba(34,197,94,0.8)]"></div>
+                <span className="text-[10px] text-gray-500 font-black uppercase tracking-[0.35em]">AI ENGINE OPERATIONAL</span>
             </div>
           </aside>
       )}

@@ -8,10 +8,11 @@ import DatabasePage from './components/DatabasePage';
 import StagingRoom from './components/StagingRoom';
 import ReportPage from './components/ReportPage';
 import ComplianceLibrary from './components/ComplianceLibrary';
+import OperationsGuide from './components/OperationsGuide';
 
 const App: React.FC = () => {
   const { dailyData, historicalData, allTickets, lastUpdated, isLoading, error, refetch, rawCSV, updateCSV, resetCSV, updateTicket } = useTicketData();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'database' | 'staging' | 'reports' | 'compliance'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations'>('dashboard');
 
   const sortedDateKeys = useMemo(() => {
     if (!dailyData) return [];
@@ -81,6 +82,7 @@ const App: React.FC = () => {
                allMainTickets={allTickets.main}
                allPendingTickets={allTickets.pending}
                allCollabTickets={allTickets.collab}
+               allPmTickets={allTickets.pm}
                onUpdateTicket={updateTicket}
                onJumpToDate={handleJumpToDate}
                availableDates={sortedDateKeys}
@@ -97,6 +99,10 @@ const App: React.FC = () => {
 
         {currentView === 'compliance' && (
             <ComplianceLibrary />
+        )}
+
+        {currentView === 'operations' && (
+            <OperationsGuide />
         )}
 
         {currentView === 'staging' && (

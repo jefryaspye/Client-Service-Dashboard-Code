@@ -9,8 +9,8 @@ interface HeaderProps {
   onNextDay: () => void;
   isPrevDisabled: boolean;
   isNextDisabled: boolean;
-  currentView: 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance';
-  onViewChange: (view: 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance') => void;
+  currentView: 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations';
+  onViewChange: (view: 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations') => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -58,6 +58,7 @@ const Header: React.FC<HeaderProps> = ({
               <NavButton view="dashboard" label="Performance" icon={ChartBarIcon} />
               <NavButton view="reports" label="Service Reports" icon={PrinterIcon} />
               <NavButton view="compliance" label="Regulatory" icon={ShieldCheckIcon} />
+              <NavButton view="operations" label="Operations" icon={ClockIcon} />
               <NavButton view="staging" label="Audit Lab" icon={BeakerIcon} />
               <NavButton view="database" label="Dataset" icon={DatabaseIcon} />
             </nav>

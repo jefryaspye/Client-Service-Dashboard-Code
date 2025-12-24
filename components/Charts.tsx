@@ -30,9 +30,18 @@ export const TicketsByPriorityChart: React.FC<ChartProps> = ({ data }) => {
 
   return (
     <div className="h-[300px] w-full">
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-                <Pie data={chartData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                <Pie 
+                    data={chartData} 
+                    cx="50%" 
+                    cy="50%" 
+                    outerRadius={80} 
+                    fill="#8884d8" 
+                    dataKey="value" 
+                    label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    isAnimationActive={false}
+                >
                     {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={PRIORITY_COLORS[entry.name as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.default} />
                     ))}
@@ -61,12 +70,12 @@ export const TicketsByCategoryChart: React.FC<ChartProps> = ({ data }) => {
 
     return (
         <div className="h-[300px] w-full">
-            <ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                     <XAxis type="number" stroke="#9ca3af" fontSize={12} />
                     <YAxis dataKey="name" type="category" stroke="#9ca3af" width={100} fontSize={12} />
                     <Tooltip cursor={{fill: '#374151'}} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} isAnimationActive={false}>
                         {chartData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
@@ -90,12 +99,12 @@ export const TicketsByDateChart: React.FC<ChartProps> = ({ data }) => {
         return Object.entries(counts)
             .map(([date, value]) => ({ date, value }))
             .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(-15); // Show last 15 active days
+            .slice(-15); 
     }, [data]);
 
     return (
         <div className="h-[300px] w-full">
-            <ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                     <XAxis 
@@ -109,14 +118,13 @@ export const TicketsByDateChart: React.FC<ChartProps> = ({ data }) => {
                         contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
                         itemStyle={{ color: '#3b82f6' }}
                     />
-                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} isAnimationActive={false} />
                 </BarChart>
             </ResponsiveContainer>
         </div>
     );
 };
 
-// Added TicketsByIsoChart to resolve compilation error in ReportPage.tsx
 export const TicketsByIsoChart: React.FC<ChartProps> = ({ data }) => {
     const chartData = useMemo(() => {
         const counts = data.reduce((acc, ticket) => {
@@ -132,7 +140,7 @@ export const TicketsByIsoChart: React.FC<ChartProps> = ({ data }) => {
 
     return (
         <div className="h-full w-full min-h-[250px]">
-            <ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                     <Pie 
                         data={chartData} 
@@ -144,6 +152,7 @@ export const TicketsByIsoChart: React.FC<ChartProps> = ({ data }) => {
                         paddingAngle={5} 
                         dataKey="value" 
                         label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        isAnimationActive={false}
                     >
                         {chartData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

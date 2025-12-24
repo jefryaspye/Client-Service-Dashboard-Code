@@ -1,55 +1,53 @@
 
-# Client Service Dashboard
+# 🏛️ Enterprise Service Intelligence Dashboard
 
-A sophisticated, high-performance interactive dashboard engineered for enterprise helpdesk data analysis, technical team performance tracking, and infrastructure project monitoring. Built with **React 19** and **TypeScript**, it delivers real-time data intelligence and a robust client-side operational suite.
-
----
-
-## 🚀 Key Features
-
-### ⚖️ Regulatory Compliance Intelligence (New)
-- **Compliance Library**: Integrated cross-reference library covering **ISO 41001 (FM)**, **ISO 27001 (Security)**, **OSHA General Duty**, **NFPA Fire Codes**, and **Malaysia DOSH Act 514**.
-- **Context-Aware Ticket Audit**: Intelligent detail mapping that automatically identifies if a ticket is related to specific regulatory standards. It displays real-time scope and applicability details directly within the ticket overview.
-- **Audit Preparedness**: Seamlessly bridges the gap between daily maintenance tickets and external audit requirements for ISO 9001 and life safety standards.
-
-### 📊 Intelligent Data Insights
-- **Heuristic Date Engine**: Advanced "learning" parser that automatically normalizes ISO strings, SQL timestamps, Unix epochs, and regional formats (DD/MM vs MM/DD).
-- **KPI Command Center**: Real-time visibility into Total Volume, Active Backlog, Resolution Velocity, and Average Labor Hours.
-- **Objective Tracker (SMART)**: Integrated scorecard measuring Daily Resolution Rates, Team Load Density, and Escalation Velocity.
-
-### 🛡️ Data Integrity & Operations
-- **Reconciliation Staging Room**: Specialized environment for auditing helpdesk exports. Automatically flags data quality issues, missing fields, and date anomalies.
-- **Enterprise Database Editor**: Direct manipulation of datasets via a high-performance text editor with syntax highlighting for CSV and JSON.
-- **Direct File Import**: Streamlined data ingestion supporting multi-format file uploads (CSV/JSON).
-
-### 🔍 Search & Granular Control
-- **Multidimensional Filtering**: Slicing by Lifecycle Stage, Severity, and Time Windows.
-- **Rich Ticket Forensics**: Deep-dive modals providing context metadata, site details, and editable technical work-logs.
+An elite, high-performance operational suite engineered for mission-critical infrastructure management, technical team orchestration, and automated regulatory compliance. Powered by **Gemini 3 Pro**, this dashboard transforms raw helpdesk data into a context-aware audit trail.
 
 ---
 
-## 🛠 Tech Stack
+## 🚀 Visionary Features
 
-- **Framework**: React 19 (ES6 Modules)
-- **Typing**: TypeScript 5+
-- **Styling**: Tailwind CSS
-- **Charts**: Recharts
-- **Parsing**: Custom Heuristic CSV/JSON Normalizer
+### 🧠 Context-Aware AI Repair (Neural Audit)
+- **Heuristic Data Healing**: Automatically resolves schema violations and structural anomalies in imported CSV/JSON datasets.
+- **Integrity Lock**: Protects core operational identifiers (`ticketIDsSequence`, `createdOn`) while intelligently inferring missing metadata.
+- **Natural Language Reasoning**: The AI Assistant analyzes ticket subjects and technical remarks to suggest corrections that align with real-world operational logic.
+
+### ⚖️ ISO Compliance Engine
+- **Automated Mapping**: High-fidelity logic that maps maintenance activities to regulatory clauses:
+  - **ISO 9001**: Infrastructure & Process Quality.
+  - **ISO 41001**: Facility Management Operations.
+  - **ISO 45001**: OH&S Hazards & Risk Control.
+  - **ISO 14001**: Environmental Impacts.
+- **Compliance KPI**: Real-time "ISO Documentation Rate" tracking to ensure audit preparedness at all times.
+
+### 📊 Advanced Performance Analytics
+- **SMART Scorecard**: Dynamic monitoring of Resolution Velocity (M), Load Density (A), and Escalation Momentum (R).
+- **Executive PDF Reporting**: High-fidelity, print-optimized auditing reports with static chart rendering and automated performance summaries.
+- **Engagement Velocity**: Temporal analysis of service engagement to identify peak demand cycles.
 
 ---
 
-## 📂 Project Structure
+## 🛠 Technical Architecture
+
+- **Engine**: React 19 (Modern ESM Architecture)
+- **Intelligence**: Google GenAI (Gemini 3 Pro / Flash)
+- **Visualization**: Recharts (Static Print Mode Enabled)
+- **Data Layer**: Heuristic CSV/JSON Normalizer with Browser-local Persistence
+- **Styling**: Tailwind CSS with "Glassmorphism" Design Language
+
+---
+
+## 📂 System Topology
 
 ```text
 .
 ├── components/
-│   ├── ComplianceLibrary.tsx # Regulatory Reference System
-│   ├── Charts.tsx            # Analytics Visualizations
-│   ├── Dashboard.tsx         # Command Center Layout
-│   ├── DatabasePage.tsx      # Raw Data & File Management
-│   ├── StagingRoom.tsx       # Data Quality & Audit Lab
-│   ├── TicketDetailModal.tsx # Enterprise Metadata & Context Viewer
-│   └── TicketTables.tsx      # Accessible Data Grids
+│   ├── DatabasePage.tsx      # Neural Workspace & AI Repair Hub
+│   ├── Dashboard.tsx         # SMART Performance Command Center
+│   ├── ReportPage.tsx        # High-Fidelity Audit Export Suite
+│   ├── ComplianceLibrary.tsx # Regulatory Knowledge Base
+│   ├── TicketTables.tsx      # Responsive Data Grids
+│   └── TicketDetailModal.tsx # Enterprise Metadata Viewer
 ├── hooks/
 │   └── useTicketData.ts      # Data Lifecycle & Heuristic Logic
 └── types.ts                  # Enterprise Schema & Compliance Definitions
@@ -57,5 +55,8 @@ A sophisticated, high-performance interactive dashboard engineered for enterpris
 
 ---
 
-## 📝 Compliance Note
-This dashboard specifically assists with **ISO 9001, 41001, and 45001** tracking by mapping specific helpdesk resolutions to organizational standard clauses. The **Compliance Library** provides the necessary context for technicians to understand the regulatory impact of their maintenance activities.
+## 📝 Regulatory Impact
+This platform is designed to fulfill the documentation requirements of **ISO 9001:2015 Clause 7.1.3** and **ISO 41001:2018 Clause 8.1**. By maintaining an immutable audit log of service activities, organizations can demonstrate continual improvement and operational control during external surveillance audits.
+
+---
+*Enterprise Service Intelligence v2.5 | Optimized for Facility Operations & Technical Helpdesks*

@@ -29,6 +29,8 @@ export interface CollabTicket extends MainTicket {
 
 export interface PendingTicket extends MainTicket {}
 
+export interface PMTicket extends MainTicket {}
+
 export interface TechTeamMetric {
   id: string;
   name: string;
@@ -61,6 +63,7 @@ export interface UpcomingProject {
 export interface DailyData {
   date: string;
   mainTickets: MainTicket[];
+  pmTickets: PMTicket[];
   collabTickets: CollabTicket[];
   pendingTickets: PendingTicket[];
   techTeamMetrics: TechTeamMetric[];
@@ -104,7 +107,7 @@ export interface ComplianceStandard {
   applicability: string;
 }
 
-export type AnyTicket = MainTicket | CollabTicket | PendingTicket;
+export type AnyTicket = MainTicket | CollabTicket | PendingTicket | PMTicket;
 
 export type SortDirection = 'asc' | 'desc';
 
