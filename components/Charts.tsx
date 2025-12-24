@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ScatterChart, Scatter, ZAxis } from 'recharts';
 import type { HistoricalTicket } from '../types';
 import { normalizeDate } from '../hooks/useTicketData';
 
@@ -81,6 +81,46 @@ export const TicketsByCategoryChart: React.FC<ChartProps> = ({ data }) => {
                         ))}
                     </Bar>
                 </BarChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
+
+export const RiskHeatmapChart: React.FC<ChartProps> = ({ data }) => {
+    const chartData = useMemo(() => {
+        const matrix: Record<string, any> = {};
+        data.forEach(t => {
+            const x = parseInt(t.riskLikelihood || '0');
+            const y = parseInt(t.riskImpact || '0');
+            if (x > 0 && y > 0) {
+                const key = `${x}-${y}`;
+                if (!matrix[key]) matrix[key] = { x, y, z: 0 };
+                matrix[key].z += 1;
+            }
+        });
+        return Object.values(matrix);
+    }, [data]);
+
+    return (
+        <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis type="number" dataKey="x" name="Likelihood" domain={[1, 5]} unit="" stroke="#9ca3af" label={{ value: 'Likelihood', position: 'insideBottom', offset: -10, fill: '#64748b' }} />
+                    <YAxis type="number" dataKey="y" name="Impact" domain={[1, 5]} unit="" stroke="#9ca3af" label={{ value: 'Impact', angle: -90, position: 'insideLeft', fill: '#64748b' }} />
+                    <ZAxis type="number" dataKey="z" range={[50, 400]} name="Tickets" />
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
+                    <Scatter name="Risk Events" data={chartData} isAnimationActive={false}>
+                        {chartData.map((entry, index) => {
+                            const score = entry.x * entry.y;
+                            let color = '#3b82f6'; // Low
+                            if (score >= 15) color = '#ef4444'; // Critical
+                            else if (score >= 10) color = '#f97316'; // High
+                            else if (score >= 5) color = '#f59e0b'; // Medium
+                            return <Cell key={`cell-${index}`} fill={color} fillOpacity={0.6} stroke={color} strokeWidth={2} />;
+                        })}
+                    </Scatter>
+                </ScatterChart>
             </ResponsiveContainer>
         </div>
     );

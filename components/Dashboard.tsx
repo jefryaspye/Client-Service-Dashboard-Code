@@ -2,9 +2,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import type { DailyData, HistoricalTicket, AnyTicket, SortConfig, MainTicket, PendingTicket, CollabTicket, PMTicket } from '../types';
 import KpiCard from './KpiCard';
-import { TicketsByPriorityChart, TicketsByCategoryChart, TicketsByDateChart } from './Charts';
+import { TicketsByPriorityChart, TicketsByCategoryChart, TicketsByDateChart, RiskHeatmapChart } from './Charts';
 import { MainTicketsTable, CollabTicketsTable, PendingTicketsTable, TeamMetricsTable, PmTicketsTable } from './TicketTables';
-import { TicketIcon, ClockIcon, DocumentCheckIcon, ChartBarIcon, ShieldCheckIcon } from './icons';
+import { TicketIcon, ClockIcon, DocumentCheckIcon, ChartBarIcon, ShieldCheckIcon, FireIcon } from './icons';
 import FilterControls from './FilterControls';
 import TicketDetailModal from './TicketDetailModal';
 
@@ -55,7 +55,6 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
   const [selectedTicket, setSelectedTicket] = useState<AnyTicket | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' });
   
-  // Custom range state
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -68,7 +67,6 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
     return '';
   }, [dailyData.date]);
 
-  // Sync custom range with current cycle date if day is selected
   useEffect(() => {
     if (timeRange === 'day' && currentDateKey) {
       setStartDate(currentDateKey);
@@ -88,13 +86,17 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
     const slaTickets = historicalData.filter(t => t.failedSlaPolicy !== undefined);
     const slaPassed = slaTickets.filter(t => (t.failedSlaPolicy || '').toUpperCase() !== 'TRUE').length;
     const slaRate = slaTickets.length > 0 ? Math.round((slaPassed / slaTickets.length) * 100) : 100;
-    const avgHoursOpen = allPendingTickets.length > 0 ? (allPendingTickets.reduce((acc, t) => acc + (new Date().getTime() - new Date(t.createdOn).getTime()) / (1000 * 60 * 60), 0) / allPendingTickets.length).toFixed(1) : '0.0';
 
-    const validIsoTickets = historicalData.filter(t => t.isoClause && t.isoClause.trim() !== '' && t.isoClause !== 'N/A');
-    const isoComplianceRate = historicalData.length > 0 ? Math.round((validIsoTickets.length / historicalData.length) * 100) : 0;
+    const criticalRiskTickets = historicalData.filter(t => {
+        const score = parseInt(t.riskLikelihood || '0') * parseInt(t.riskImpact || '0');
+        return score >= 15;
+    }).length;
 
-    return { totalToday, pendingToday, closedToday, avgTimeSpent, slaRate, avgHoursOpen, isoComplianceRate };
-  }, [dailyData, historicalData, allPendingTickets]);
+    const isoAuditReady = historicalData.filter(t => t.isoClause && t.isoClause !== 'N/A' && (t.stage.toLowerCase() === 'closed' ? t.rootCause : true)).length;
+    const auditReadyPct = historicalData.length > 0 ? Math.round((isoAuditReady / historicalData.length) * 100) : 0;
+
+    return { totalToday, pendingToday, closedToday, avgTimeSpent, slaRate, criticalRiskTickets, auditReadyPct };
+  }, [dailyData, historicalData]);
 
   const smartMetrics = useMemo(() => {
     const mainTotal = dailyData.mainTickets?.length || 0;
@@ -117,28 +119,21 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
     const getSrc = <T extends AnyTicket>(all: T[], daily: T[]) => {
       if (effectiveTimeRange === 'day') return daily;
       if (effectiveTimeRange === 'all') return all;
-      
       let start: Date;
       let end: Date = new Date();
-
       if (effectiveTimeRange === 'week') {
         start = new Date(new Date(dailyData.date.split('/').reverse().join('-')));
         start.setDate(start.getDate() - 7);
       } else if (effectiveTimeRange === 'custom') {
         start = startDate ? new Date(startDate) : new Date(0);
         end = endDate ? new Date(endDate) : new Date();
-        // Set end to end of day
         end.setHours(23, 59, 59, 999);
-      } else {
-        return all;
-      }
-
+      } else return all;
       return all.filter(t => {
         const d = new Date(t.createdOn);
         return d >= start && d <= end;
       });
     };
-
     const applyFilt = <T extends AnyTicket>(tkts: T[]) => {
       const term = searchTerm.toLowerCase().trim();
       return tkts.filter(t => {
@@ -146,12 +141,10 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
         const matchSearch = term === '' || 
                             t.item.toLowerCase().includes(term) || 
                             t.ticketNumber.toLowerCase().includes(term) || 
-                            t.assignee.toLowerCase().includes(term) ||
-                            t.createdOn.toLowerCase().includes(term);
+                            t.assignee.toLowerCase().includes(term);
         return matchFilt && matchSearch;
       });
     };
-
     return {
       main: applyFilt(getSrc(allMainTickets, dailyData.mainTickets)),
       pm: applyFilt(getSrc(allPmTickets, dailyData.pmTickets)),
@@ -162,25 +155,18 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
 
   const chartHistory = useMemo(() => {
     if (effectiveTimeRange === 'all') return historicalData;
-    
-    let start: Date;
-    let end: Date;
-
+    let start: Date, end: Date;
     if (effectiveTimeRange === 'day') {
       end = new Date(dailyData.date.split('/').reverse().join('-'));
       return historicalData.filter(t => new Date(t.createdOn).toDateString() === end.toDateString());
     } else if (effectiveTimeRange === 'week') {
       end = new Date(dailyData.date.split('/').reverse().join('-'));
-      start = new Date(end);
-      start.setDate(end.getDate() - 7);
+      start = new Date(end); start.setDate(end.getDate() - 7);
     } else if (effectiveTimeRange === 'custom') {
       start = startDate ? new Date(startDate) : new Date(0);
       end = endDate ? new Date(endDate) : new Date();
       end.setHours(23, 59, 59, 999);
-    } else {
-      return historicalData;
-    }
-
+    } else return historicalData;
     return historicalData.filter(t => {
         const d = new Date(t.createdOn);
         return d >= start && d <= end;
@@ -196,8 +182,8 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
         <KpiCard title="Active Pipeline" value={kpiData.pendingToday} icon={<ClockIcon />} color="blue" />
         <KpiCard title="Completions" value={kpiData.closedToday} icon={<DocumentCheckIcon />} color="green" />
         <KpiCard title="Mean Labor Time" value={`${kpiData.avgTimeSpent}h`} icon={<ChartBarIcon />} />
-        <KpiCard title="Backlog Age" value={`${kpiData.avgHoursOpen}h`} icon={<ClockIcon />} color="red" />
-        <KpiCard title="ISO Documentation" value={`${kpiData.isoComplianceRate}%`} icon={<ShieldCheckIcon />} color="blue" />
+        <KpiCard title="Critical Risks" value={kpiData.criticalRiskTickets} icon={<FireIcon />} color="red" />
+        <KpiCard title="Audit Readiness" value={`${kpiData.auditReadyPct}%`} icon={<ShieldCheckIcon />} color="blue" />
         <KpiCard title="SLA Compliance" value={`${kpiData.slaRate}%`} icon={<ShieldCheckIcon />} color="brand" />
       </section>
 
@@ -214,7 +200,7 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               <SmartKpiItem letter="S" label="Daily Resolution Rate" value={smartMetrics.resolutionRate} target={90} unit="%" />
               <SmartKpiItem letter="M" label="Mean Resolution Cycle" value={smartMetrics.avgTime} target={4.0} unit="h" inverse={true} />
-              <SmartKpiItem letter="A" label="Workload Density" value={smartMetrics.loadPerTech} target={5} unit=" tkt/tech" inverse={true} />
+              <SmartKpiItem letter="A" label="Workload Density" value={smartMetrics.loadPerTech} target={5} unit=" t/t" inverse={true} />
               <SmartKpiItem letter="R" label="Escalation Velocity" value={smartMetrics.escalationRate} target={5} unit="%" inverse={true} />
               <SmartKpiItem letter="T" label="Compliance Accuracy" value={smartMetrics.slaRate} target={95} unit="%" />
           </div>
@@ -224,12 +210,15 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
       {/* Analytics Visualization */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
-          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Severity Distribution</h3>
-          <TicketsByPriorityChart data={chartHistory} />
+          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6 flex items-center">
+            <FireIcon className="w-4 h-4 mr-2 text-red-500" />
+            Risk Exposure Matrix (ISO 31000)
+          </h3>
+          <RiskHeatmapChart data={chartHistory} />
         </div>
         <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
-          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Labor Segments (Top 10)</h3>
-          <TicketsByCategoryChart data={chartHistory} />
+          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Operational Distribution</h3>
+          <TicketsByPriorityChart data={chartHistory} />
         </div>
         <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
           <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Engagement Velocity</h3>
@@ -260,16 +249,6 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
             onStartDateChange={setStartDate}
             onEndDateChange={setEndDate}
         />
-        {effectiveTimeRange !== 'day' && (
-            <div className="bg-brand-950/40 border border-brand-800/50 text-brand-300 px-6 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest flex items-center justify-center animate-in fade-in shadow-xl backdrop-blur-sm">
-                <ShieldCheckIcon className="w-4 h-4 mr-3 text-brand-400" />
-                Context: {
-                  effectiveTimeRange === 'all' ? "Deep Historical Audit" : 
-                  effectiveTimeRange === 'custom' ? `Custom Range (${startDate || 'Start'} to ${endDate || 'End'})` : 
-                  "Rolling 7-Day Performance Window"
-                }
-            </div>
-        )}
       </section>
 
       {/* Data Tables */}
@@ -279,15 +258,6 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
         {filteredTickets.collab.length > 0 && <CollabTicketsTable tickets={filteredTickets.collab} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
         {filteredTickets.pending.length > 0 && <PendingTicketsTable tickets={filteredTickets.pending} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
         
-        {Object.values(filteredTickets).every(arr => arr.length === 0) && (
-            <div className="bg-gray-800/30 p-24 text-center rounded-3xl border border-gray-700/50 backdrop-blur-sm border-dashed">
-                <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-700">
-                  <ChartBarIcon className="w-8 h-8 text-gray-700" />
-                </div>
-                <h4 className="text-white font-bold text-lg">Null Vector Detected</h4>
-                <p className="text-gray-500 text-sm mt-1">No operational data matches the current filter parameters.</p>
-            </div>
-        )}
         {effectiveTimeRange === 'day' && !isGlobalSearch && dailyData.techTeamMetrics?.length > 0 && <TeamMetricsTable metrics={dailyData.techTeamMetrics} />}
       </section>
       

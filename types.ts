@@ -21,6 +21,17 @@ export interface MainTicket {
   customer: string;
   isoClause: string;
   tags: string;
+  // ISO & Risk Enhancement Fields
+  riskLikelihood?: number; // 1-5
+  riskImpact?: number;     // 1-5
+  riskLevel?: number;      // Likelihood * Impact
+  hazardCategory?: string;
+  rootCause?: string;
+  correctiveAction?: string;
+  preventiveAction?: string;
+  objectiveID?: string;
+  facilityLocation?: string;
+  stakeholderType?: string;
 }
 
 export interface CollabTicket extends MainTicket {
@@ -97,6 +108,16 @@ export interface HistoricalTicket {
   createdBy?: string;
   failedSlaPolicy?: string;
   resolution?: string;
+  // Risk & ISO extensions
+  riskLikelihood?: string;
+  riskImpact?: string;
+  riskLevel?: string;
+  hazardCategory?: string;
+  rootCause?: string;
+  correctiveAction?: string;
+  preventiveAction?: string;
+  objectiveID?: string;
+  facilityLocation?: string;
 }
 
 export interface ComplianceStandard {
