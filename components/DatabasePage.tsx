@@ -156,6 +156,29 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
     }
   };
 
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setText(content);
+        setFormat('csv');
+        setMessage({ type: 'success', text: `Imported '${file.name}' successfully.` });
+        setTimeout(() => setMessage(null), 3000);
+    };
+    reader.onerror = () => {
+        setMessage({ type: 'error', text: 'Failed to read the selected file.' });
+        setTimeout(() => setMessage(null), 3000);
+    };
+    reader.readAsText(file);
+
+    if (event.target) {
+        event.target.value = '';
+    }
+  };
+
   const exportData = (targetFormat: 'csv' | 'json', sourceData?: string) => {
     let dataToExport = sourceData || text;
     let fileName = `dataset_export_${new Date().getTime()}`;
@@ -336,6 +359,13 @@ Format: Output as valid ${format} in the 'data' field.`;
                 </div>
             )}
             <div className="flex items-center space-x-3">
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="hidden sm:flex items-center bg-gray-950 border border-gray-800 rounded-2xl p-1 gap-1 text-gray-500 hover:text-white hover:bg-gray-800 transition-all px-4"
+                >
+                    <UploadIcon className="w-4 h-4" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Import</span>
+                </button>
                 <div className="hidden sm:flex items-center bg-gray-950 border border-gray-800 rounded-2xl p-1 gap-1">
                     <button 
                         onClick={() => exportData('csv')}
@@ -522,7 +552,7 @@ Format: Output as valid ${format} in the 'data' field.`;
             </div>
           </aside>
       )}
-      <input ref={fileInputRef} type='file' className="hidden" accept=".csv,.json" onChange={(e) => {}} />
+      <input ref={fileInputRef} type='file' className="hidden" accept=".csv,.txt" onChange={handleFileImport} />
     </div>
   );
 };
