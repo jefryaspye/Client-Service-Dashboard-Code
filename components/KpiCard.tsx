@@ -6,7 +6,7 @@ interface KpiCardProps {
   value: string | number;
   icon: React.ReactElement<{ className?: string }>;
   trend?: string;
-  color?: 'brand' | 'blue' | 'green' | 'red' | 'gray';
+  color?: 'brand' | 'blue' | 'green' | 'red' | 'gray' | 'orange';
 }
 
 const KpiCard: React.FC<KpiCardProps> = ({ title, value, icon, trend, color = 'gray' }) => {
@@ -14,6 +14,7 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, icon, trend, color = 'g
     brand: 'from-brand-600/20 to-brand-900/10 text-brand-400 border-brand-500/20',
     blue: 'from-blue-600/20 to-blue-900/10 text-blue-400 border-blue-500/20',
     green: 'from-green-600/20 to-green-900/10 text-green-400 border-green-500/20',
+    orange: 'from-orange-600/20 to-orange-900/10 text-orange-400 border-orange-500/20',
     red: 'from-red-600/20 to-red-900/10 text-red-400 border-red-500/20',
     gray: 'from-gray-600/10 to-gray-800/5 text-gray-400 border-gray-700/50',
   };
@@ -22,6 +23,7 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, icon, trend, color = 'g
     brand: 'bg-brand-600/10 text-brand-400 border-brand-500/20',
     blue: 'bg-blue-600/10 text-blue-400 border-blue-500/20',
     green: 'bg-green-600/10 text-green-400 border-green-500/20',
+    orange: 'bg-orange-600/10 text-orange-400 border-orange-500/20',
     red: 'bg-red-600/10 text-red-400 border-red-500/20',
     gray: 'bg-gray-700 text-gray-500 border-gray-600',
   };

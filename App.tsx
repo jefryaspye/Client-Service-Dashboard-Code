@@ -1,18 +1,21 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { useTicketData } from './hooks/useTicketData';
-import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import ErrorDisplay from './components/ErrorDisplay';
-import DatabasePage from './components/DatabasePage';
-import StagingRoom from './components/StagingRoom';
-import ReportPage from './components/ReportPage';
-import ComplianceLibrary from './components/ComplianceLibrary';
-import OperationsGuide from './components/OperationsGuide';
+import { useTicketData } from './hooks/useTicketData.ts';
+import Header from './components/Header.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import ErrorDisplay from './components/ErrorDisplay.tsx';
+import DatabasePage from './components/DatabasePage.tsx';
+import StagingRoom from './components/StagingRoom.tsx';
+import ReportPage from './components/ReportPage.tsx';
+import ComplianceLibrary from './components/ComplianceLibrary.tsx';
+import OperationsGuide from './components/OperationsGuide.tsx';
+import FmeaPage from './components/FmeaPage.tsx';
+import CheckSheetPage from './components/CheckSheetPage.tsx';
+import type { ViewType } from './types.ts';
 
 const App: React.FC = () => {
   const { dailyData, historicalData, allTickets, lastUpdated, isLoading, error, refetch, rawCSV, updateCSV, resetCSV, updateTicket } = useTicketData();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations'>('dashboard');
+  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
 
   const sortedDateKeys = useMemo(() => {
     if (!dailyData) return [];
@@ -97,8 +100,16 @@ const App: React.FC = () => {
             />
         )}
 
+        {currentView === 'checksheet' && (
+            <CheckSheetPage />
+        )}
+
         {currentView === 'compliance' && (
             <ComplianceLibrary historicalData={historicalData} />
+        )}
+
+        {currentView === 'fmea' && (
+            <FmeaPage />
         )}
 
         {currentView === 'operations' && (

@@ -1,6 +1,10 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import type { DailyDataCollection, HistoricalTicket, MainTicket, PendingTicket, CollabTicket, PMTicket, AnyTicket } from '../types';
 
+/**
+ * Normalizes various date string formats into a standard internal object.
+ */
 export const normalizeDate = (dateStr: string | number): { dateKey: string; formatted: string; year: number } | null => {
   if (!dateStr) return null;
   
@@ -11,30 +15,31 @@ export const normalizeDate = (dateStr: string | number): { dateKey: string; form
     const ts = parseInt(str);
     d = new Date(ts > 10000000000 ? ts : ts * 1000);
   } else {
-    // Attempt to handle YYYY-MM-DD HH:mm:ss directly
+    // Attempt to handle YYYY-MM-DD HH:mm:ss directly or standard ISO
     const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (isoMatch) {
-        d = new Date(str.replace(' ', 'T'));
+      d = new Date(str.replace(' ', 'T'));
     } else {
-        const timestamp = Date.parse(str);
-        if (!isNaN(timestamp)) {
-            d = new Date(timestamp);
-        } else {
-            const parts = str.match(/(\d+)/g);
-            if (parts && parts.length >= 3) {
-                const n1 = parseInt(parts[0]);
-                const n2 = parseInt(parts[1]);
-                const n3 = parseInt(parts[2]);
-                if (n1 > 1000) {
-                    d = new Date(n1, n2 - 1, n3);
-                } else if (n3 > 1000) {
-                    if (n1 > 12) d = new Date(n3, n2 - 1, n1); 
-                    else d = new Date(n3, n1 - 1, n2); 
-                }
-            }
+      const timestamp = Date.parse(str);
+      if (!isNaN(timestamp)) {
+        d = new Date(timestamp);
+      } else {
+        const parts = str.match(/(\d+)/g);
+        if (parts && parts.length >= 3) {
+          const n1 = parseInt(parts[0]);
+          const n2 = parseInt(parts[1]);
+          const n3 = parseInt(parts[2]);
+          // Basic heuristic for common formats: YYYY-MM-DD vs DD/MM/YYYY
+          if (n1 > 1000) {
+            d = new Date(n1, n2 - 1, n3);
+          } else if (n3 > 1000) {
+            if (n1 > 12) d = new Date(n3, n2 - 1, n1); 
+            else d = new Date(n3, n1 - 1, n2); 
+          }
         }
+      }
     }
-}
+  }
 
   if (!d || isNaN(d.getTime())) return null;
 
@@ -69,6 +74,7 @@ const DEFAULT_CSV = `"Ticket IDs Sequence","Created on","Acknowledge Time","Clos
 `;
 
 export const parseCSV = (csv: string): Record<string, string>[] => {
+  if (!csv || !csv.trim()) return [];
   const rows: string[][] = [];
   let row: string[] = [];
   let currentVal = '';
@@ -113,7 +119,10 @@ export const parseCSV = (csv: string): Record<string, string>[] => {
 export const jsonToCSV = (json: Record<string, any>[]): string => {
   if (!json || json.length === 0) return '';
   const headers = Object.keys(json[0]);
-  return [headers.join(','), ...json.map(row => headers.map(h => `"${String(row[h] || '').replace(/"/g, '""')}"`).join(','))].join('\n');
+  return [headers.join(','), ...json.map(row => headers.map(h => {
+    const val = row[h] === undefined || row[h] === null ? '' : String(row[h]);
+    return `"${val.replace(/"/g, '""')}"`;
+  }).join(','))].join('\n');
 };
 
 export const useTicketData = () => {
@@ -138,7 +147,7 @@ export const useTicketData = () => {
   const updateTicket = useCallback((ticketNumber: string, assignee: string, updates: Partial<HistoricalTicket>) => {
     const parsed = parseCSV(rawCSV);
     const updated = parsed.map(ticket => {
-      if (ticket.ticketIDsSequence === ticketNumber && ticket.assignedTo === assignee) {
+      if (ticket.ticketIDsSequence === ticketNumber && (ticket.assignedTo === assignee || !assignee)) {
         return { ...ticket, ...updates };
       }
       return ticket;
@@ -174,27 +183,29 @@ export const useTicketData = () => {
             if (!seenPerDay.has(dateKey)) seenPerDay.set(dateKey, new Map());
             const dayMap = seenPerDay.get(dateKey)!;
             
-            const status = (ticket.stage || '').toLowerCase();
-            const isPending = ['in progress', 'open', 'on hold', 'scheduled'].includes(status);
+            const statusStr = (ticket.stage || '').toLowerCase();
+            const isPending = ['in progress', 'open', 'on hold', 'scheduled'].includes(statusStr);
             
             const category = (ticket.category || ticket.tags || 'Incident').toLowerCase();
-            const isPM = category.includes('pm') || category.includes('preventive') || category.includes('maintenance');
+            const subject = (ticket.subject || '').toLowerCase();
+            // Refined PM check
+            const isPM = category.includes('pm') || category.includes('preventive') || category.includes('maintenance') || subject.includes('servicing') || subject.includes('scheduled maintenance');
 
             const likelihood = parseInt(ticket.riskLikelihood || '0');
             const impact = parseInt(ticket.riskImpact || '0');
 
             const common: MainTicket = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: Math.random().toString(36).substring(2, 9),
                 no: ticket.ticketIDsSequence,
-                item: ticket.subject,
+                item: ticket.subject || 'No Subject',
                 ticketNumber: ticket.ticketIDsSequence,
                 category: ticket.category || ticket.tags || 'General',
                 createdOn: ticket.createdOn, 
                 createdBy: ticket.createdBy || 'System',
                 duration: ticket.timeSpent || '0',
-                assignee: ticket.assignedTo,
-                status: ticket.stage,
-                priority: ticket.priority,
+                assignee: ticket.assignedTo || 'Unassigned',
+                status: ticket.stage || 'Open',
+                priority: ticket.priority || 'Normal',
                 team: ticket.helpdeskTeam || 'Helpdesk',
                 ticketAgeHours: '0', 
                 escalation: (ticket.priority || '').toLowerCase().includes('urgent') ? 'Yes' : 'No',
@@ -202,18 +213,18 @@ export const useTicketData = () => {
                 zone: ticket.zone || '',
                 unit: ticket.unit || '',
                 location: ticket.location || 'KCP',
-                customer: ticket.customer,
+                customer: ticket.customer || 'Internal',
                 isoClause: ticket.isoClause || 'N/A',
-                tags: ticket.tags,
-                riskLikelihood: likelihood,
-                riskImpact: impact,
-                riskLevel: likelihood * impact,
-                hazardCategory: ticket.hazardCategory,
-                rootCause: ticket.rootCause,
-                correctiveAction: ticket.correctiveAction,
-                preventiveAction: ticket.preventiveAction,
-                objectiveID: ticket.objectiveID,
-                facilityLocation: ticket.facilityLocation
+                tags: ticket.tags || '',
+                riskLikelihood: likelihood || 0,
+                riskImpact: impact || 0,
+                riskLevel: (likelihood || 0) * (impact || 0),
+                hazardCategory: ticket.hazardCategory || '',
+                rootCause: ticket.rootCause || '',
+                correctiveAction: ticket.correctiveAction || '',
+                preventiveAction: ticket.preventiveAction || '',
+                objectiveID: ticket.objectiveID || '',
+                facilityLocation: ticket.facilityLocation || ''
             };
 
             if (!dayMap.has(ticket.ticketIDsSequence)) {
@@ -228,7 +239,8 @@ export const useTicketData = () => {
                     collection[dateKey].mainTickets.push(common); 
                     gMain.push(common); 
                 }
-            } else if (ticket.assignedTo !== dayMap.get(ticket.ticketIDsSequence)) {
+            } else {
+                // Handle team collaboration (same ticket, different assignee)
                 const ct = { ...common, collab: ticket.assignedTo, assignee: dayMap.get(ticket.ticketIDsSequence)! };
                 collection[dateKey].collabTickets.push(ct); 
                 gCollab.push(ct);
@@ -244,24 +256,44 @@ export const useTicketData = () => {
                 const metrics: Record<string, any> = {};
                 [...day.mainTickets, ...day.pmTickets, ...day.pendingTickets, ...day.collabTickets].forEach(t => {
                     const name = t.assignee || 'Unassigned';
-                    if (!metrics[name]) metrics[name] = { id: name, name, open: 0, inProgress: 0, onHold: 0, scheduled: 0, resolved: 0, closed: 0, totalTickets: 0, totalWorkHours: 0 };
-                    const m = metrics[name]; m.totalTickets++;
-                    const s = t.status.toLowerCase();
+                    if (!metrics[name]) {
+                      metrics[name] = { 
+                        id: name, 
+                        name, 
+                        open: 0, 
+                        inProgress: 0, 
+                        onHold: 0, 
+                        scheduled: 0, 
+                        resolved: 0, 
+                        closed: 0, 
+                        totalTickets: 0, 
+                        totalWorkHours: 0 
+                      };
+                    }
+                    const m = metrics[name]; 
+                    m.totalTickets++;
+                    const s = (t.status || '').toLowerCase();
                     if (s === 'open') m.open++; 
                     else if (s === 'in progress') m.inProgress++; 
+                    else if (s === 'on hold') m.onHold++;
+                    else if (s === 'scheduled') m.scheduled++;
                     else if (s === 'closed' || s === 'resolved') m.closed++;
                     m.totalWorkHours += parseFloat(t.duration || '0');
                 });
-                day.techTeamMetrics = Object.values(metrics).map(m => ({ ...m, totalWorkHours: m.totalWorkHours.toFixed(2) }));
+                day.techTeamMetrics = Object.values(metrics).map(m => ({ 
+                  ...m, 
+                  totalWorkHours: Number(m.totalWorkHours).toFixed(2) 
+                }));
                 sortedCollection[key] = day;
             });
 
         setDailyData(sortedCollection);
         setAllTickets({ main: gMain, pending: gPending, collab: gCollab, pm: gPm });
         setLastUpdated(new Date().toLocaleString());
+        setError(null);
     } catch (e: any) { 
         console.error(e);
-        setError(e.message); 
+        setError(`Data Processing Error: ${e.message}`); 
     } finally { 
         setIsLoading(false); 
     }

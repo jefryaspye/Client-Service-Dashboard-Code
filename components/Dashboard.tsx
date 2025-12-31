@@ -1,12 +1,12 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import type { DailyData, HistoricalTicket, AnyTicket, SortConfig, MainTicket, PendingTicket, CollabTicket, PMTicket } from '../types';
-import KpiCard from './KpiCard';
-import { TicketsByPriorityChart, TicketsByCategoryChart, TicketsByDateChart, RiskHeatmapChart } from './Charts';
-import { MainTicketsTable, CollabTicketsTable, PendingTicketsTable, TeamMetricsTable, PmTicketsTable } from './TicketTables';
-import { TicketIcon, ClockIcon, DocumentCheckIcon, ChartBarIcon, ShieldCheckIcon, FireIcon } from './icons';
-import FilterControls from './FilterControls';
-import TicketDetailModal from './TicketDetailModal';
+import type { DailyData, HistoricalTicket, AnyTicket, SortConfig, MainTicket, PendingTicket, CollabTicket, PMTicket } from '../types.ts';
+import KpiCard from './KpiCard.tsx';
+import { TicketsByPriorityChart, TicketsByCategoryChart, TicketsByDateChart, RiskHeatmapChart } from './Charts.tsx';
+import { MainTicketsTable, CollabTicketsTable, PendingTicketsTable, TeamMetricsTable, PmTicketsTable } from './TicketTables.tsx';
+import { TicketIcon, ClockIcon, DocumentCheckIcon, ChartBarIcon, ShieldCheckIcon, FireIcon } from './icons.tsx';
+import FilterControls from './FilterControls.tsx';
+import TicketDetailModal from './TicketDetailModal.tsx';
 
 interface DashboardProps {
   dailyData: DailyData;
@@ -74,41 +74,75 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
     }
   }, [currentDateKey, timeRange]);
 
-  const kpiData = useMemo(() => {
-    const totalToday = (dailyData.mainTickets?.length || 0) + (dailyData.pmTickets?.length || 0) + (dailyData.collabTickets?.length || 0);
-    const pendingToday = dailyData.pendingTickets?.length || 0;
-    const closedToday = (dailyData.mainTickets?.filter(t => (t.status || '').toLowerCase() === 'closed').length || 0) + 
-                        (dailyData.mainTickets?.filter(t => (t.status || '').toLowerCase() === 'resolved').length || 0) +
-                        (dailyData.pmTickets?.filter(t => (t.status || '').toLowerCase() === 'closed').length || 0);
+  const chartHistory = useMemo(() => {
+    if (effectiveTimeRange === 'all') return historicalData;
+    let start: Date, end: Date;
+    if (effectiveTimeRange === 'day') {
+      end = new Date(dailyData.date.split('/').reverse().join('-'));
+      return historicalData.filter(t => new Date(t.createdOn).toDateString() === end.toDateString());
+    } else if (effectiveTimeRange === 'week') {
+      end = new Date(dailyData.date.split('/').reverse().join('-'));
+      start = new Date(end); start.setDate(end.getDate() - 7);
+    } else if (effectiveTimeRange === 'custom') {
+      start = startDate ? new Date(startDate) : new Date(0);
+      end = endDate ? new Date(endDate) : new Date();
+      end.setHours(23, 59, 59, 999);
+    } else return historicalData;
+    return historicalData.filter(t => {
+        const d = new Date(t.createdOn);
+        return d >= start && d <= end;
+    });
+  }, [historicalData, effectiveTimeRange, dailyData.date, startDate, endDate]);
 
-    const validTimeSpents = historicalData.map(t => parseFloat(t.timeSpent)).filter(t => !isNaN(t) && t > 0);
-    const avgTimeSpent = validTimeSpents.length > 0 ? (validTimeSpents.reduce((a, b) => a + b, 0) / validTimeSpents.length).toFixed(2) : '0.00';
-    const slaTickets = historicalData.filter(t => t.failedSlaPolicy !== undefined);
+  const kpiData = useMemo(() => {
+    const totalCount = chartHistory.length;
+    
+    const activePipeline = chartHistory.filter(t => 
+      ['in progress', 'open', 'on hold', 'scheduled'].includes((t.stage || '').toLowerCase())
+    ).length;
+
+    const completed = chartHistory.filter(t => 
+      ['closed', 'resolved'].includes((t.stage || '').toLowerCase())
+    ).length;
+
+    const validTimeSpents = chartHistory.map(t => parseFloat(t.timeSpent)).filter(t => !isNaN(t) && t > 0);
+    const avgTimeSpent = validTimeSpents.length > 0 
+      ? (validTimeSpents.reduce((a, b) => a + b, 0) / validTimeSpents.length).toFixed(2) 
+      : '0.00';
+
+    const slaTickets = chartHistory.filter(t => t.failedSlaPolicy !== undefined);
     const slaPassed = slaTickets.filter(t => (t.failedSlaPolicy || '').toUpperCase() !== 'TRUE').length;
     const slaRate = slaTickets.length > 0 ? Math.round((slaPassed / slaTickets.length) * 100) : 100;
 
-    const criticalRiskTickets = historicalData.filter(t => {
+    const criticalRiskTickets = chartHistory.filter(t => {
         const score = parseInt(t.riskLikelihood || '0') * parseInt(t.riskImpact || '0');
         return score >= 15;
     }).length;
 
-    const isoAuditReady = historicalData.filter(t => t.isoClause && t.isoClause !== 'N/A' && (t.stage.toLowerCase() === 'closed' ? t.rootCause : true)).length;
-    const auditReadyPct = historicalData.length > 0 ? Math.round((isoAuditReady / historicalData.length) * 100) : 0;
+    const validIsoTickets = chartHistory.filter(t => t.isoClause && t.isoClause !== 'N/A').length;
+    const auditReadyPct = totalCount > 0 ? Math.round((validIsoTickets / totalCount) * 100) : 0;
 
-    return { totalToday, pendingToday, closedToday, avgTimeSpent, slaRate, criticalRiskTickets, auditReadyPct };
-  }, [dailyData, historicalData]);
+    return { totalCount, activePipeline, completed, avgTimeSpent, slaRate, criticalRiskTickets, auditReadyPct };
+  }, [chartHistory]);
 
   const smartMetrics = useMemo(() => {
-    const mainTotal = dailyData.mainTickets?.length || 0;
-    const mainClosed = dailyData.mainTickets?.filter(t => ['closed', 'resolved'].includes((t.status || '').toLowerCase())).length || 0;
-    const resolutionRate = mainTotal > 0 ? Math.round((mainClosed / mainTotal) * 100) : 0;
-    const uniqueAssignees = new Set(dailyData.pendingTickets?.map(t => t.assignee)).size || 1;
-    const loadPerTech = Math.round((dailyData.pendingTickets?.length / uniqueAssignees) * 10) / 10;
-    const allTkts = [...(dailyData.mainTickets || []), ...(dailyData.pmTickets || []), ...(dailyData.collabTickets || [])];
-    const escalationRate = allTkts.length > 0 ? Math.round((allTkts.filter(t => (t.escalation || '').toLowerCase() === 'yes').length / allTkts.length) * 100) : 0;
+    const resolutionRate = kpiData.totalCount > 0 ? Math.round((kpiData.completed / kpiData.totalCount) * 100) : 0;
+    
+    const uniqueAssignees = new Set(chartHistory.map(t => t.assignedTo)).size || 1;
+    const loadPerTech = Math.round((kpiData.activePipeline / uniqueAssignees) * 10) / 10;
+    
+    const escalationRate = kpiData.totalCount > 0 
+      ? Math.round((chartHistory.filter(t => (t.priority || '').toLowerCase().includes('urgent')).length / kpiData.totalCount) * 100) 
+      : 0;
 
-    return { resolutionRate, avgTime: parseFloat(kpiData.avgTimeSpent), loadPerTech, escalationRate, slaRate: kpiData.slaRate };
-  }, [dailyData, kpiData]);
+    return { 
+        resolutionRate, 
+        avgTime: parseFloat(kpiData.avgTimeSpent), 
+        loadPerTech, 
+        escalationRate, 
+        slaRate: kpiData.slaRate 
+    };
+  }, [chartHistory, kpiData]);
 
   const { uniqueStatuses, uniquePriorities } = useMemo(() => ({
     uniqueStatuses: Array.from(new Set(historicalData.map(t => t.stage || ''))).filter(s => s).sort(),
@@ -153,38 +187,54 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
     };
   }, [dailyData, allMainTickets, allCollabTickets, allPendingTickets, allPmTickets, statusFilter, priorityFilter, searchTerm, effectiveTimeRange, startDate, endDate]);
 
-  const chartHistory = useMemo(() => {
-    if (effectiveTimeRange === 'all') return historicalData;
-    let start: Date, end: Date;
-    if (effectiveTimeRange === 'day') {
-      end = new Date(dailyData.date.split('/').reverse().join('-'));
-      return historicalData.filter(t => new Date(t.createdOn).toDateString() === end.toDateString());
-    } else if (effectiveTimeRange === 'week') {
-      end = new Date(dailyData.date.split('/').reverse().join('-'));
-      start = new Date(end); start.setDate(end.getDate() - 7);
-    } else if (effectiveTimeRange === 'custom') {
-      start = startDate ? new Date(startDate) : new Date(0);
-      end = endDate ? new Date(endDate) : new Date();
-      end.setHours(23, 59, 59, 999);
-    } else return historicalData;
-    return historicalData.filter(t => {
-        const d = new Date(t.createdOn);
-        return d >= start && d <= end;
-    });
-  }, [historicalData, effectiveTimeRange, dailyData.date, startDate, endDate]);
+  const getStatusColor = (val: number) => {
+    if (val >= 90) return 'green';
+    if (val >= 70) return 'orange';
+    return 'red';
+  };
+
+  const periodLabel = useMemo(() => {
+    if (effectiveTimeRange === 'day') return `Day: ${dailyData.date}`;
+    if (effectiveTimeRange === 'week') return "Trailing 7 Days";
+    if (effectiveTimeRange === 'all') return "Full Dataset History";
+    if (effectiveTimeRange === 'custom') return `${startDate} to ${endDate}`;
+    return "";
+  }, [effectiveTimeRange, dailyData.date, startDate, endDate]);
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       {/* KPI Section */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
-        <KpiCard title="Total Volume" value={kpiData.totalToday} icon={<TicketIcon />} trend="+4% vs yesterday" />
-        <KpiCard title="Active Pipeline" value={kpiData.pendingToday} icon={<ClockIcon />} color="blue" />
-        <KpiCard title="Completions" value={kpiData.closedToday} icon={<DocumentCheckIcon />} color="green" />
-        <KpiCard title="Mean Labor Time" value={`${kpiData.avgTimeSpent}h`} icon={<ChartBarIcon />} />
-        <KpiCard title="Critical Risks" value={kpiData.criticalRiskTickets} icon={<FireIcon />} color="red" />
-        <KpiCard title="Audit Readiness" value={`${kpiData.auditReadyPct}%`} icon={<ShieldCheckIcon />} color="blue" />
-        <KpiCard title="SLA Compliance" value={`${kpiData.slaRate}%`} icon={<ShieldCheckIcon />} color="brand" />
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Performance Metrics for:</span>
+                <span className="text-[10px] font-black text-white bg-brand-950/50 px-3 py-1 rounded-full border border-brand-500/20 uppercase tracking-widest">{periodLabel}</span>
+            </div>
+            {chartHistory.length === 0 && (
+              <span className="text-[10px] font-black text-red-400 uppercase tracking-widest animate-bounce">No data for this range</span>
+            )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
+            <KpiCard title="Incident Volume" value={kpiData.totalCount} icon={<TicketIcon />} />
+            <KpiCard title="Active Pipeline" value={kpiData.activePipeline} icon={<ClockIcon />} color="blue" />
+            <KpiCard title="Completions" value={kpiData.completed} icon={<DocumentCheckIcon />} color="green" />
+            <KpiCard title="Mean Labor Time" value={`${kpiData.avgTimeSpent}h`} icon={<ChartBarIcon />} />
+            <KpiCard title="Critical Risks" value={kpiData.criticalRiskTickets} icon={<FireIcon />} color="red" />
+            <KpiCard 
+            title="Audit Readiness" 
+            value={`${kpiData.auditReadyPct}%`} 
+            icon={<ShieldCheckIcon />} 
+            color={getStatusColor(kpiData.auditReadyPct)} 
+            />
+            <KpiCard 
+            title="SLA Compliance" 
+            value={`${kpiData.slaRate}%`} 
+            icon={<ShieldCheckIcon />} 
+            color={getStatusColor(kpiData.slaRate)} 
+            />
+        </div>
       </section>
 
       {/* SMART Objectives */}
@@ -194,14 +244,14 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
           <div className="flex items-center space-x-4 mb-6">
             <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] flex items-center">
               <div className="w-8 h-[2px] bg-brand-600 mr-3"></div>
-              SMART Team Objectives
+              SMART Period Objectives
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-              <SmartKpiItem letter="S" label="Daily Resolution Rate" value={smartMetrics.resolutionRate} target={90} unit="%" />
+              <SmartKpiItem letter="S" label="Target Resolution Rate" value={smartMetrics.resolutionRate} target={90} unit="%" />
               <SmartKpiItem letter="M" label="Mean Resolution Cycle" value={smartMetrics.avgTime} target={4.0} unit="h" inverse={true} />
               <SmartKpiItem letter="A" label="Workload Density" value={smartMetrics.loadPerTech} target={5} unit=" t/t" inverse={true} />
-              <SmartKpiItem letter="R" label="Escalation Velocity" value={smartMetrics.escalationRate} target={5} unit="%" inverse={true} />
+              <SmartKpiItem letter="R" label="Urgent Escalation Velocity" value={smartMetrics.escalationRate} target={5} unit="%" inverse={true} />
               <SmartKpiItem letter="T" label="Compliance Accuracy" value={smartMetrics.slaRate} target={95} unit="%" />
           </div>
         </div>
@@ -222,7 +272,7 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
         </div>
         <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
           <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Engagement Velocity</h3>
-          <TicketsByDateChart data={effectiveTimeRange === 'day' ? historicalData : chartHistory} />
+          <TicketsByDateChart data={chartHistory} />
         </div>
       </section>
       

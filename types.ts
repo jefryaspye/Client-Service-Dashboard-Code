@@ -108,7 +108,6 @@ export interface HistoricalTicket {
   createdBy?: string;
   failedSlaPolicy?: string;
   resolution?: string;
-  // Add description to fix: Error in file hooks/useTicketData.ts on line 201: Property 'description' does not exist on type 'HistoricalTicket'.
   description?: string;
   // Risk & ISO extensions
   riskLikelihood?: string;
@@ -130,6 +129,30 @@ export interface ComplianceStandard {
   applicability: string;
 }
 
+export interface FmeaRecord {
+  id: string;
+  systemPart: string;
+  failureMode: string;
+  potentialEffects: string;
+  severity: number; // 1-10
+  potentialCauses: string;
+  occurrence: number; // 1-10
+  currentControls: string;
+  detection: number; // 1-10
+  rpn: number; // Sev * Occ * Det
+  recommendedActions: string;
+  responsibility: string;
+}
+
+export interface CheckSheetItem {
+  id: string;
+  category: string;
+  requirement: string;
+  isoClause: string;
+  status: 'Pass' | 'Fail' | 'N/A';
+  remarks: string;
+}
+
 export type AnyTicket = MainTicket | CollabTicket | PendingTicket | PMTicket;
 
 export type SortDirection = 'asc' | 'desc';
@@ -138,3 +161,5 @@ export interface SortConfig {
   key: string | null;
   direction: SortDirection;
 }
+
+export type ViewType = 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations' | 'fmea' | 'checksheet';

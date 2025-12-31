@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { DailyData, HistoricalTicket } from '../types';
 import { TicketsByPriorityChart, TicketsByCategoryChart, TicketsByIsoChart } from './Charts';
-import { PrinterIcon, ShieldCheckIcon } from './icons';
+import { PrinterIcon, ShieldCheckIcon, FilePdfIcon } from './icons';
+import { generatePdfFromElement } from '../utils/pdfGenerator.ts';
 
 interface ReportPageProps {
   dailyData: DailyData;
@@ -10,10 +11,25 @@ interface ReportPageProps {
 }
 
 const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) => {
+  const [pdfProgress, setPdfProgress] = useState<number | null>(null);
+
   const handlePrint = () => {
     setTimeout(() => {
       window.print();
     }, 200);
+  };
+
+  const handleDownloadPdf = async () => {
+    setPdfProgress(0);
+    try {
+      const fileName = `Service_Audit_${dailyData.date.replace(/\//g, '-')}.pdf`;
+      await generatePdfFromElement('official-audit-report', fileName, (p) => setPdfProgress(p));
+    } catch (e) {
+      console.error(e);
+      alert('Failed to generate PDF. Please try the standard Print option.');
+    } finally {
+      setTimeout(() => setPdfProgress(null), 1000);
+    }
   };
 
   const total = dailyData.mainTickets.length + dailyData.pmTickets.length + dailyData.collabTickets.length + dailyData.pendingTickets.length;
@@ -33,14 +49,24 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
             <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-950 rounded-xl border border-gray-800">
                 <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Engine Ready</span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  {pdfProgress !== null ? `Exporting: ${pdfProgress}%` : 'Engine Ready'}
+                </span>
             </div>
             <button
               onClick={handlePrint}
-              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-brand-600 hover:bg-brand-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all shadow-2xl shadow-brand-900/40 transform active:scale-95 ring-2 ring-brand-400/30"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-gray-900 hover:bg-gray-700 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all border border-gray-700"
             >
-              <PrinterIcon className="w-5 h-5" />
-              Print / Export PDF
+              <PrinterIcon className="w-4 h-4" />
+              Standard Print
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={pdfProgress !== null}
+              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-brand-600 hover:bg-brand-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all shadow-2xl shadow-brand-900/40 transform active:scale-95 ring-2 ring-brand-400/30 disabled:opacity-50"
+            >
+              <FilePdfIcon className="w-5 h-5" />
+              {pdfProgress !== null ? 'Processing...' : 'Download PDF Report'}
             </button>
         </div>
       </div>
@@ -72,20 +98,20 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
         </div>
 
         {/* Executive Summary Stats - Responsive Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-16">
-          <div className="bg-gray-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 flex flex-col items-center text-center">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-16 break-inside-avoid">
+          <div className="bg-gray-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 flex flex-col items-center text-center shadow-sm">
             <div className="text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Volume</div>
             <div className="text-3xl md:text-5xl font-black text-gray-900">{total}</div>
           </div>
-          <div className="bg-green-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-green-100 flex flex-col items-center text-center">
+          <div className="bg-green-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-green-100 flex flex-col items-center text-center shadow-sm">
             <div className="text-[8px] md:text-[10px] font-black text-green-600 uppercase tracking-widest mb-2">Resolved</div>
             <div className="text-3xl md:text-5xl font-black text-green-700">{closed}</div>
           </div>
-          <div className="bg-red-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-red-100 flex flex-col items-center text-center">
+          <div className="bg-red-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-red-100 flex flex-col items-center text-center shadow-sm">
             <div className="text-[8px] md:text-[10px] font-black text-red-600 uppercase tracking-widest mb-2">High Risk</div>
             <div className="text-3xl md:text-5xl font-black text-red-700">{critical}</div>
           </div>
-          <div className="bg-brand-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-brand-100 flex flex-col items-center text-center">
+          <div className="bg-brand-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-brand-100 flex flex-col items-center text-center shadow-sm">
             <div className="text-[8px] md:text-[10px] font-black text-brand-600 uppercase tracking-widest mb-2">Resolution %</div>
             <div className="text-3xl md:text-5xl font-black text-brand-700">
               {total > 0 ? Math.round((closed / total) * 100) : 0}%
@@ -99,7 +125,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
                 <div className="h-[2px] bg-brand-600 w-10 md:w-12"></div>
                 <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-gray-900">Intelligence Layers</h3>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 break-inside-avoid">
                 <div className="border border-gray-100 p-6 md:p-8 rounded-[2rem] bg-gray-50/40">
                     <h4 className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 md:mb-8 text-center">Severity Distribution</h4>
                     <div className="h-[250px] md:h-[300px]">
@@ -121,7 +147,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
                 <div className="h-[2px] bg-brand-600 w-10 md:w-12"></div>
                 <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-gray-900">Compliance Adherence</h3>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12 items-center break-inside-avoid">
                 <div className="lg:col-span-2">
                     <div className="h-[300px] md:h-[350px] border border-gray-100 rounded-[2rem] p-6 bg-gray-50/40">
                         <TicketsByIsoChart data={historicalData} />
@@ -144,7 +170,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
         </div>
 
         {/* Detailed Service Log */}
-        <div className="mb-12 page-break-before">
+        <div className="mb-12">
             <div className="flex items-center gap-3 md:gap-4 mb-8">
                 <div className="h-[2px] bg-brand-600 w-10 md:w-12"></div>
                 <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-gray-900">Technical Log</h3>
@@ -188,7 +214,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
         </div>
 
         {/* Report Footer & Sign-off */}
-        <div className="mt-20 md:mt-24 pt-12 border-t-[4px] border-gray-100 flex flex-col md:flex-row justify-between items-center md:items-end gap-12 md:gap-0">
+        <div className="mt-20 md:mt-24 pt-12 border-t-[4px] border-gray-100 flex flex-col md:flex-row justify-between items-center md:items-end gap-12 md:gap-0 break-inside-avoid">
           <div className="text-[8px] md:text-[10px] text-gray-400 uppercase font-black tracking-[0.2em] leading-[1.8] text-center md:text-left">
             Generated via Intelligence Hub v2.5<br />
             System Verification ID: {new Date().getTime().toString(16).toUpperCase()}<br />
@@ -223,6 +249,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
           #root { background: white !important; padding: 0 !important; }
           main { padding: 0 !important; margin: 0 !important; }
           .page-break-before { page-break-before: always; }
+          .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           #official-audit-report {
             width: 100% !important;

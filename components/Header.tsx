@@ -1,6 +1,18 @@
 
 import React from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, ChartBarIcon, DatabaseIcon, BeakerIcon, ClockIcon, PrinterIcon, ShieldCheckIcon } from './icons';
+import { 
+  ChevronLeftIcon, 
+  ChevronRightIcon, 
+  ChartBarIcon, 
+  DatabaseIcon, 
+  BeakerIcon, 
+  ClockIcon, 
+  PrinterIcon, 
+  ShieldCheckIcon, 
+  PuzzleIcon, 
+  ClipboardCheckIcon 
+} from './icons.tsx';
+import type { ViewType } from '../types.ts';
 
 interface HeaderProps {
   currentDate: string;
@@ -9,8 +21,8 @@ interface HeaderProps {
   onNextDay: () => void;
   isPrevDisabled: boolean;
   isNextDisabled: boolean;
-  currentView: 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations';
-  onViewChange: (view: 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations') => void;
+  currentView: ViewType;
+  onViewChange: (view: ViewType) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -23,7 +35,7 @@ const Header: React.FC<HeaderProps> = ({
   currentView,
   onViewChange
 }) => {
-  const NavButton = ({ view, label, icon: Icon }: { view: typeof currentView, label: string, icon: any }) => (
+  const NavButton = ({ view, label, icon: Icon }: { view: ViewType, label: string, icon: any }) => (
     <button
       onClick={() => onViewChange(view)}
       className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2.5 transition-all duration-200 ${
@@ -57,7 +69,9 @@ const Header: React.FC<HeaderProps> = ({
             <nav className="hidden xl:flex items-center space-x-1 p-1 bg-gray-950/50 rounded-2xl border border-gray-800">
               <NavButton view="dashboard" label="Performance" icon={ChartBarIcon} />
               <NavButton view="reports" label="Service Reports" icon={PrinterIcon} />
+              <NavButton view="checksheet" label="ISO Check Sheet" icon={ClipboardCheckIcon} />
               <NavButton view="compliance" label="ISO Clauses" icon={ShieldCheckIcon} />
+              <NavButton view="fmea" label="FMEA Analysis" icon={PuzzleIcon} />
               <NavButton view="operations" label="Operations" icon={ClockIcon} />
               <NavButton view="staging" label="Audit Lab" icon={BeakerIcon} />
               <NavButton view="database" label="Dataset" icon={DatabaseIcon} />

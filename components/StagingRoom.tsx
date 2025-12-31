@@ -1,3 +1,4 @@
+
 import { normalizeDate } from '../hooks/useTicketData';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldExclamationIcon, ShieldCheckIcon, ClockIcon } from './icons';
@@ -5,11 +6,6 @@ import { parseCSV, jsonToCSV } from '../hooks/useTicketData';
 import type { HistoricalTicket } from '../types';
 import { COMPLIANCE_STANDARDS } from './ComplianceLibrary';
 import { GoogleGenAI, Type } from "@google/genai";
-
-interface StagingRoomProps {
-  historicalData: HistoricalTicket[];
-  onCommit: (csv: string) => void;
-}
 
 interface AnalyzedRow {
   data: Record<string, any>;
@@ -56,6 +52,11 @@ const getConfidenceClass = (confidence?: string) => {
         case 'low': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
         default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
+}
+
+interface StagingRoomProps {
+  historicalData: HistoricalTicket[];
+  onCommit: (csv: string) => void;
 }
 
 const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) => {
@@ -178,6 +179,7 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
 
     if (ticketsToAnalyze.length === 0) {
         setIsAiAnalyzing(false);
+        alert("All tickets in this batch already have verified ISO mapping.");
         return;
     }
 
@@ -186,40 +188,26 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
         const standardsList = COMPLIANCE_STANDARDS.map(s => `- ${s.standard}: ${s.scope}`).join('\n');
         const ticketList = ticketsToAnalyze.map(t => {
             const subject = t.data.subject;
-            const activities = t.data.activities;
+            const activities = t.data.activities || t.data.description || '';
             let context = `Subject: "${subject}"`;
-            if (activities) {
-                context += `, Activities: "${activities}"`;
-            }
+            if (activities) context += `, Activities: "${activities}"`;
             return `- ID: ${t.data.ticketIDsSequence}, ${context}`;
         }).join('\n');
         
-        const prompt = `You are a compliance expert specializing in facility management standards.
-Your task is to map technical helpdesk tickets to the most relevant ISO clause from a predefined list.
+        const prompt = `You are a compliance expert. Map these technical helpdesk tickets to the most relevant ISO clause.
 
-**Approved ISO Standards:**
+**Standards:**
 ${standardsList}
 
-**Tickets for Analysis:**
+**Tickets:**
 ${ticketList}
 
 **Instructions:**
-For each ticket, analyze its subject and any provided activities/remarks to suggest the single most appropriate clause.
-Then, provide a confidence score and a detailed reason based on the following criteria:
-
-- **Reasoning Requirement (CRITICAL):** The 'reason' field must provide a comprehensive justification. It should:
-    1.  **Quote Keywords:** Directly quote the specific words/phrases from the ticket's 'Subject' or 'Activities' that influenced the decision.
-    2.  **Connect to Scope:** Explicitly link these keywords to the official scope of the suggested ISO standard.
-    3.  **Provide Rationale:** Clearly explain the logical connection. For example: "The keyword 'power trip' from the subject directly relates to the maintenance of 'Infrastructure', which is the core scope of ISO 9001 (Clause 7.1.3)." Vague reasons like "Related to facilities" are unacceptable.
-
-- **Confidence Score Criteria:**
-    - **High Confidence**: The ticket subject or activities contain explicit keywords directly matching an ISO standard's scope (e.g., "power trip," "cooling failure," "safety hazard," "malware").
-    - **Medium Confidence**: The subject/activities are related to a standard but lack specific keywords, requiring inference (e.g., "broken chair," "light flickering," "system access").
-    - **Low Confidence**: The subject/activities are very generic or ambiguous, making the mapping a best-effort guess (e.g., "check request," "general inquiry").
-
-**Output Format:**
-Provide your response as a single JSON object with a key "suggestions", which is an array. Each element must be an object with keys: "ticketId", "suggestedClause", "reason", and "confidence".
-Only include suggestions if you have at least 'Low' confidence.`;
+Return a JSON object with a "suggestions" array. Each suggestion must include:
+- "ticketId": The unique sequence ID.
+- "suggestedClause": The identified ISO standard.
+- "reason": Detailed justification quoting keywords from the ticket.
+- "confidence": 'High' | 'Medium' | 'Low' based on keyword alignment.`;
         
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -250,22 +238,22 @@ Only include suggestions if you have at least 'Low' confidence.`;
 
         const result = JSON.parse(response.text || '{"suggestions":[]}');
         const suggestionsMap = new Map<string, { suggestedClause: string; reason: string; confidence: string }>(
-            result.suggestions.map((s: any) => [s.ticketId, { suggestedClause: s.suggestedClause, reason: s.reason, confidence: s.confidence }])
+            result.suggestions.map((s: any) => [String(s.ticketId), { suggestedClause: s.suggestedClause, reason: s.reason, confidence: s.confidence }])
         );
 
         setAnalysis(prev => {
             if (!prev) return prev;
             return prev.map(row => {
-                const suggestion = suggestionsMap.get(row.data.ticketIDsSequence);
+                const suggestion = suggestionsMap.get(String(row.data.ticketIDsSequence));
                 if (suggestion) {
                     return { ...row, aiSuggestion: suggestion as AnalyzedRow['aiSuggestion'] };
                 }
                 return row;
             });
         });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AI analysis failed:", e);
-        alert("AI clause analysis failed. Please check the console for details.");
+        alert(`AI analysis failed: ${e.message}`);
     } finally {
         setIsAiAnalyzing(false);
     }
@@ -296,10 +284,7 @@ Only include suggestions if you have at least 'Low' confidence.`;
 
   const handleBatchApplyHighConfidence = () => {
     if (highConfidenceSuggestionsCount === 0) return;
-
-    if (!confirm(`Are you sure you want to apply ${highConfidenceSuggestionsCount} high-confidence suggestions at once? This action cannot be undone.`)) {
-      return;
-    }
+    if (!confirm(`Apply ${highConfidenceSuggestionsCount} high-confidence suggestions?`)) return;
 
     setAnalysis(prevAnalysis => {
       if (!prevAnalysis) return null;
@@ -307,15 +292,9 @@ Only include suggestions if you have at least 'Low' confidence.`;
         if (row.aiSuggestion?.confidence === 'High') {
           const newRow = { ...row, data: { ...row.data, isoClause: row.aiSuggestion.suggestedClause } };
           delete newRow.aiSuggestion;
-
           const isoIssueIndex = newRow.issues.findIndex(issue => issue.startsWith('Non-standard ISO'));
-          if (isoIssueIndex > -1) {
-            newRow.issues.splice(isoIssueIndex, 1);
-          }
-          
-          if (newRow.issues.length === 0 && newRow.status !== 'error') {
-            newRow.status = 'valid';
-          }
+          if (isoIssueIndex > -1) newRow.issues.splice(isoIssueIndex, 1);
+          if (newRow.issues.length === 0 && newRow.status !== 'error') newRow.status = 'valid';
           return newRow;
         }
         return row;
@@ -325,39 +304,23 @@ Only include suggestions if you have at least 'Low' confidence.`;
 
   const handleCommit = async (mode: 'append' | 'replace') => {
     if (!analysis) return;
-
     const validRows = analysis.filter(r => r.status !== 'error').map(r => r.data);
-    
     if (validRows.length === 0) {
-        alert("No valid rows to commit! Please fix critical errors (empty ID, Date, Status, or Subject).");
+        alert("No valid rows to commit! Please fix critical errors.");
         return;
     }
-
     const errorCount = analysis.filter(r => r.status === 'error').length;
-    if (errorCount > 0) {
-        if (!confirm(`${errorCount} rows with critical errors will be SKIPPED. Do you want to continue?`)) {
-            return;
-        }
-    }
-
-    if (mode === 'replace') {
-        if (!confirm("This will permanently replace all existing historical data with the clean rows from this batch. Proceed?")) {
-            return;
-        }
-    }
+    if (errorCount > 0 && !confirm(`${errorCount} rows with critical errors will be skipped. Continue?`)) return;
+    if (mode === 'replace' && !confirm("Permanently replace history with these clean rows?")) return;
 
     setCommitStatus({ type: 'committing', message: mode === 'replace' ? 'Replacing history...' : 'Appending data...' });
 
     try {
         await new Promise(resolve => setTimeout(resolve, 800));
-        let finalCSV = '';
-        if (mode === 'append') {
-            finalCSV = jsonToCSV([...historicalData, ...validRows] as any[]);
-        } else {
-            finalCSV = jsonToCSV(validRows as any[]);
-        }
+        const finalData = mode === 'append' ? [...historicalData, ...validRows] : validRows;
+        onCommit(jsonToCSV(finalData as any[]));
         setCommitStatus({ type: 'success', message: 'History successfully updated!' });
-        timerRef.current = window.setTimeout(() => onCommit(finalCSV), 1200);
+        timerRef.current = window.setTimeout(() => {}, 1200);
     } catch (e: any) {
         alert("Commit failed: " + e.message);
         setCommitStatus({ type: 'idle', message: '' });
@@ -370,7 +333,7 @@ Only include suggestions if you have at least 'Low' confidence.`;
         {commitStatus.type === 'success' && (
             <div className="absolute inset-x-0 top-0 bg-green-600 text-white py-3 px-6 text-center font-bold text-sm flex items-center justify-center space-x-2 animate-in slide-in-from-top duration-300 z-20 shadow-lg">
                 <ShieldCheckIcon className="w-5 h-5" />
-                <span>{commitStatus.message} Redirecting to Dashboard...</span>
+                <span>{commitStatus.message} Redirecting...</span>
             </div>
         )}
 
@@ -380,14 +343,14 @@ Only include suggestions if you have at least 'Low' confidence.`;
             Data Reconciliation & Staging
           </h2>
           <p className="text-gray-400 mt-2">
-            Audit your helpdesk export. The system flags rows with missing statuses, IDs, unparseable dates, or non-standard ISO clauses.
+            Audit helpdesk exports for compliance errors, missing critical identifiers, or date anomalies.
           </p>
         </div>
 
         {!analysis ? (
           <div className="space-y-4">
             <textarea
-              className="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm text-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              className="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm text-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               placeholder="Paste CSV content here..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -395,15 +358,10 @@ Only include suggestions if you have at least 'Low' confidence.`;
             <button
               onClick={runAnalysis}
               disabled={!inputText.trim() || isProcessing}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              {isProcessing ? (
-                 <span className="animate-pulse">Auditing Rows...</span>
-              ) : (
-                <>
-                  <DocumentCheckIcon className="w-5 h-5" />
-                  <span>Analyze Data Integrity</span>
-                </>
+              {isProcessing ? <span className="animate-pulse">Auditing Rows...</span> : (
+                <><DocumentCheckIcon className="w-5 h-5" /><span>Analyze Data Integrity</span></>
               )}
             </button>
           </div>
@@ -432,29 +390,22 @@ Only include suggestions if you have at least 'Low' confidence.`;
               </div>
             </div>
             
-            <div className="flex justify-between items-center border-b border-gray-700">
-                <div className="flex">
-                   <button onClick={() => setActiveTab('all')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'all' ? 'border-blue-500 text-white' : 'border-transparent text-gray-500 hover:text-white'}`}>All Rows</button>
-                   <button onClick={() => setActiveTab('errors')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'errors' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Critical ({stats?.errors})</button>
-                   <button onClick={() => setActiveTab('warnings')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'warnings' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Warnings ({stats?.warnings})</button>
-                   <button onClick={() => setActiveTab('duplicates')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'duplicates' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Conflicts ({stats?.duplicates})</button>
+            <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-700 gap-4">
+                <div className="flex overflow-x-auto w-full sm:w-auto">
+                   <button onClick={() => setActiveTab('all')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'all' ? 'border-blue-500 text-white' : 'border-transparent text-gray-500 hover:text-white'}`}>All Rows</button>
+                   <button onClick={() => setActiveTab('errors')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'errors' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Critical ({stats?.errors})</button>
+                   <button onClick={() => setActiveTab('warnings')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'warnings' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Warnings ({stats?.warnings})</button>
+                   <button onClick={() => setActiveTab('duplicates')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'duplicates' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Conflicts ({stats?.duplicates})</button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pb-2 sm:pb-0">
                     {highConfidenceSuggestionsCount > 0 && (
-                        <button
-                            onClick={handleBatchApplyHighConfidence}
-                            className="px-4 py-2 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2 animate-in fade-in"
-                        >
-                           <ShieldCheckIcon className="w-4 h-4" />
-                           {`Apply ${highConfidenceSuggestionsCount} High Confidence`}
+                        <button onClick={handleBatchApplyHighConfidence} className="px-3 py-1.5 text-[10px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2">
+                           <ShieldCheckIcon className="w-3.5 h-3.5" />
+                           {`Apply ${highConfidenceSuggestionsCount} High Suggestions`}
                         </button>
                     )}
-                    <button
-                      onClick={runAiClauseAnalysis}
-                      disabled={isAiAnalyzing}
-                      className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {isAiAnalyzing ? 'Analyzing...' : '✨ Run AI Clause Analysis'}
+                    <button onClick={runAiClauseAnalysis} disabled={isAiAnalyzing} className="px-3 py-1.5 text-[10px] font-bold text-white bg-brand-600 hover:bg-brand-500 rounded-lg transition-colors disabled:opacity-50">
+                      {isAiAnalyzing ? 'Analyzing...' : '✨ AI Clause Mapping'}
                     </button>
                 </div>
             </div>
@@ -472,44 +423,35 @@ Only include suggestions if you have at least 'Low' confidence.`;
                   <tbody className="divide-y divide-gray-800">
                     {filteredAnalysis.map((row, i) => (
                       <tr key={i} className={`${row.status === 'error' ? 'bg-red-900/10' : row.status === 'warning' ? 'bg-orange-900/10' : ''} hover:bg-white/5 transition-colors`}>
-                        <td className="px-4 py-3 font-mono text-gray-300">{row.data.ticketIDsSequence || <span className="text-red-500">EMPTY</span>}</td>
-                        <td className="px-4 py-3 truncate max-w-[250px]">{row.data.subject || <span className="text-red-500 italic">EMPTY</span>}</td>
+                        <td className="px-4 py-3 font-mono text-gray-300">{row.data.ticketIDsSequence || <span className="text-red-500 font-black">MISSING</span>}</td>
+                        <td className="px-4 py-3 truncate max-w-[200px] font-medium">{row.data.subject || 'N/A'}</td>
                         <td className="px-4 py-3">
-                           {row.isDuplicate && <span className="text-purple-400 font-bold block mb-1">ID exists in history</span>}
+                           {row.isDuplicate && <span className="text-purple-400 font-bold block mb-1">ID exists in master history</span>}
                            {row.issues.map((msg, j) => (
-                             <span key={j} className={`${row.status === 'error' ? 'text-red-400' : 'text-orange-400'} block font-medium`}>• {msg}</span>
+                             <span key={j} className={`${row.status === 'error' ? 'text-red-400 font-bold' : 'text-orange-400'} block`}>• {msg}</span>
                            ))}
-                           {row.issues.length === 0 && !row.isDuplicate && <span className="text-green-500 font-medium">Clear</span>}
+                           {row.issues.length === 0 && !row.isDuplicate && <span className="text-green-500 font-medium">Verified</span>}
                            {row.aiSuggestion && (
-                              <div className="mt-2 p-3 bg-blue-900/20 rounded-lg border border-blue-800/50 animate-in fade-in">
+                              <div className="mt-2 p-3 bg-blue-900/20 rounded-lg border border-blue-800/50">
                                   <div className="flex justify-between items-start">
                                       <div>
-                                          <span className="text-xs font-bold text-blue-300 block">✨ AI Suggestion</span>
-                                          <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${getConfidenceClass(row.aiSuggestion.confidence)}`}>
+                                          <span className="text-[10px] font-black text-blue-300 uppercase block mb-1">AI Recommendation</span>
+                                          <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border ${getConfidenceClass(row.aiSuggestion.confidence)}`}>
                                             {row.aiSuggestion.confidence} Confidence
                                           </span>
                                       </div>
-                                      <button 
-                                          onClick={() => handleApplySuggestion(row.data.ticketIDsSequence, row.aiSuggestion!.suggestedClause)}
-                                          className="px-2 py-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
-                                      >
-                                          Apply
-                                      </button>
+                                      <button onClick={() => handleApplySuggestion(row.data.ticketIDsSequence, row.aiSuggestion!.suggestedClause)} className="px-2 py-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-md">Apply</button>
                                   </div>
-                                  <p className="text-blue-400 font-mono text-xs mt-2">{row.aiSuggestion.suggestedClause}</p>
-                                  <p className="text-gray-500 text-[11px] italic mt-1">"{row.aiSuggestion.reason}"</p>
+                                  <p className="text-blue-400 font-mono text-xs mt-2 font-bold">{row.aiSuggestion.suggestedClause}</p>
+                                  <p className="text-gray-500 text-[10px] italic mt-1 leading-snug">"{row.aiSuggestion.reason}"</p>
                               </div>
                            )}
                         </td>
                         <td className="px-4 py-3 text-center">
                            <div className="flex justify-center">
-                               {row.status === 'error' ? (
-                                   <ShieldExclamationIcon className="w-5 h-5 text-red-500" />
-                               ) : row.status === 'warning' ? (
-                                   <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
-                               ) : (
-                                   <ShieldCheckIcon className="w-5 h-5 text-green-500" />
-                               )}
+                               {row.status === 'error' ? <ShieldExclamationIcon className="w-5 h-5 text-red-500" /> : 
+                                row.status === 'warning' ? <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" /> : 
+                                <ShieldCheckIcon className="w-5 h-5 text-green-500" />}
                            </div>
                         </td>
                       </tr>
@@ -519,33 +461,12 @@ Only include suggestions if you have at least 'Low' confidence.`;
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-700">
-              <button
-                onClick={() => setAnalysis(null)}
-                disabled={commitStatus.type !== 'idle'}
-                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-              >
-                Reset & Paste New
-              </button>
+              <button onClick={() => setAnalysis(null)} disabled={commitStatus.type !== 'idle'} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-black uppercase text-[10px] tracking-widest rounded-lg transition-colors">Discard Batch</button>
               <div className="flex-grow"></div>
-              <button
-                onClick={() => handleCommit('append')}
-                disabled={commitStatus.type !== 'idle'}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-              >
-                {commitStatus.type === 'committing' ? <span className="animate-pulse">Processing...</span> : (
-                  <>
-                    <DocumentCheckIcon className="w-5 h-5" />
-                    <span>Append Verified</span>
-                  </>
-                )}
+              <button onClick={() => handleCommit('append')} disabled={commitStatus.type !== 'idle'} className="px-10 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[10px] tracking-widest rounded-lg shadow-xl shadow-blue-900/40 transition-all flex items-center justify-center gap-2">
+                {commitStatus.type === 'committing' ? <span className="animate-pulse">Commiting...</span> : <><DocumentCheckIcon className="w-4 h-4" /><span>Append Verified</span></>}
               </button>
-              <button
-                onClick={() => handleCommit('replace')}
-                disabled={commitStatus.type !== 'idle'}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition-all disabled:opacity-50"
-              >
-                {commitStatus.type === 'committing' ? 'Replacing...' : 'Replace History'}
-              </button>
+              <button onClick={() => handleCommit('replace')} disabled={commitStatus.type !== 'idle'} className="px-10 py-3 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest rounded-lg shadow-xl shadow-red-900/40 transition-all">Replace History</button>
             </div>
           </div>
         )}
