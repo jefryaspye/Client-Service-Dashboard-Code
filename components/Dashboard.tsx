@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useTransition } from 'react';
 import type { DailyData, HistoricalTicket, AnyTicket, SortConfig, MainTicket, PendingTicket, CollabTicket, PMTicket } from '../types.ts';
 import KpiCard from './KpiCard.tsx';
 import { TicketsByPriorityChart, TicketsByCategoryChart, TicketsByDateChart, RiskHeatmapChart } from './Charts.tsx';
@@ -8,6 +8,7 @@ import { TicketIcon, ClockIcon, DocumentCheckIcon, ChartBarIcon, ShieldCheckIcon
 import FilterControls from './FilterControls.tsx';
 import TicketDetailModal from './TicketDetailModal.tsx';
 
+// Added DashboardProps interface to fix "Cannot find name 'DashboardProps'" error
 interface DashboardProps {
   dailyData: DailyData;
   historicalData: HistoricalTicket[];
@@ -19,6 +20,37 @@ interface DashboardProps {
   onJumpToDate: (dateKey: string) => void;
   availableDates: string[];
 }
+
+const SkeletonLoader = () => (
+  <div className="space-y-10 animate-pulse">
+    {/* KPI Skeletons */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
+      {[...Array(7)].map((_, i) => (
+        <div key={i} className="h-32 bg-gray-800/50 rounded-3xl border border-gray-700/50"></div>
+      ))}
+    </div>
+    
+    {/* SMART Objectives Skeletons */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-40 bg-gray-800/40 rounded-2xl border border-gray-700/50"></div>
+      ))}
+    </div>
+
+    {/* Chart Skeletons */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="h-[380px] bg-gray-800/50 rounded-3xl border border-gray-700/50"></div>
+      ))}
+    </div>
+
+    {/* Table Skeletons */}
+    <div className="space-y-8">
+      <div className="h-96 bg-gray-800/50 rounded-3xl border border-gray-700/50"></div>
+      <div className="h-64 bg-gray-800/50 rounded-3xl border border-gray-700/50"></div>
+    </div>
+  </div>
+);
 
 const SmartKpiItem = ({ letter, label, value, target, unit, inverse = false }: { letter: string, label: string, value: number, target: number, unit: string, inverse?: boolean }) => {
     const isGood = inverse ? value <= target : value >= target;
@@ -48,6 +80,7 @@ const SmartKpiItem = ({ letter, label, value, target, unit, inverse = false }: {
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMainTickets, allPendingTickets, allCollabTickets, allPmTickets, onUpdateTicket, onJumpToDate, availableDates }) => {
+  const [isPending, startTransition] = useTransition();
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'all' | 'custom'>('day');
@@ -144,9 +177,10 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
     };
   }, [chartHistory, kpiData]);
 
+  // Fixed: Added explicit type parameter <string> to new Set() to avoid inference as unknown[]
   const { uniqueStatuses, uniquePriorities } = useMemo(() => ({
-    uniqueStatuses: Array.from(new Set(historicalData.map(t => t.stage || ''))).filter(s => s).sort(),
-    uniquePriorities: Array.from(new Set(historicalData.map(t => t.priority || ''))).filter(p => p).sort()
+    uniqueStatuses: Array.from(new Set<string>(historicalData.map(t => t.stage || ''))).filter(s => s).sort(),
+    uniquePriorities: Array.from(new Set<string>(historicalData.map(t => t.priority || ''))).filter(p => p).sort()
   }), [historicalData]);
 
   const filteredTickets = useMemo(() => {
@@ -208,107 +242,127 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyData, historicalData, allMai
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Performance Metrics for:</span>
+                <span className={`w-2 h-2 rounded-full ${isPending ? 'bg-yellow-500' : 'bg-brand-500'} animate-pulse`}></span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  {isPending ? 'Processing Real-time Data...' : 'Performance Metrics for:'}
+                </span>
                 <span className="text-[10px] font-black text-white bg-brand-950/50 px-3 py-1 rounded-full border border-brand-500/20 uppercase tracking-widest">{periodLabel}</span>
             </div>
-            {chartHistory.length === 0 && (
+            {chartHistory.length === 0 && !isPending && (
               <span className="text-[10px] font-black text-red-400 uppercase tracking-widest animate-bounce">No data for this range</span>
             )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
-            <KpiCard title="Incident Volume" value={kpiData.totalCount} icon={<TicketIcon />} />
-            <KpiCard title="Active Pipeline" value={kpiData.activePipeline} icon={<ClockIcon />} color="blue" />
-            <KpiCard title="Completions" value={kpiData.completed} icon={<DocumentCheckIcon />} color="green" />
-            <KpiCard title="Mean Labor Time" value={`${kpiData.avgTimeSpent}h`} icon={<ChartBarIcon />} />
-            <KpiCard title="Critical Risks" value={kpiData.criticalRiskTickets} icon={<FireIcon />} color="red" />
-            <KpiCard 
-            title="Audit Readiness" 
-            value={`${kpiData.auditReadyPct}%`} 
-            icon={<ShieldCheckIcon />} 
-            color={getStatusColor(kpiData.auditReadyPct)} 
-            />
-            <KpiCard 
-            title="SLA Compliance" 
-            value={`${kpiData.slaRate}%`} 
-            icon={<ShieldCheckIcon />} 
-            color={getStatusColor(kpiData.slaRate)} 
-            />
-        </div>
-      </section>
+        
+        {isPending ? (
+          <SkeletonLoader />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
+                <KpiCard title="Incident Volume" value={kpiData.totalCount} icon={<TicketIcon />} />
+                <KpiCard title="Active Pipeline" value={kpiData.activePipeline} icon={<ClockIcon />} color="blue" />
+                <KpiCard title="Completions" value={kpiData.completed} icon={<DocumentCheckIcon />} color="green" />
+                <KpiCard title="Mean Labor Time" value={`${kpiData.avgTimeSpent}h`} icon={<ChartBarIcon />} />
+                <KpiCard title="Critical Risks" value={kpiData.criticalRiskTickets} icon={<FireIcon />} color="red" />
+                <KpiCard 
+                title="Audit Readiness" 
+                value={`${kpiData.auditReadyPct}%`} 
+                icon={<ShieldCheckIcon />} 
+                color={getStatusColor(kpiData.auditReadyPct)} 
+                />
+                <KpiCard 
+                title="SLA Compliance" 
+                value={`${kpiData.slaRate}%`} 
+                icon={<ShieldCheckIcon />} 
+                color={getStatusColor(kpiData.slaRate)} 
+                />
+            </div>
 
-      {/* SMART Objectives */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-brand-500/5 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="relative">
-          <div className="flex items-center space-x-4 mb-6">
-            <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] flex items-center">
-              <div className="w-8 h-[2px] bg-brand-600 mr-3"></div>
-              SMART Period Objectives
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-              <SmartKpiItem letter="S" label="Target Resolution Rate" value={smartMetrics.resolutionRate} target={90} unit="%" />
-              <SmartKpiItem letter="M" label="Mean Resolution Cycle" value={smartMetrics.avgTime} target={4.0} unit="h" inverse={true} />
-              <SmartKpiItem letter="A" label="Workload Density" value={smartMetrics.loadPerTech} target={5} unit=" t/t" inverse={true} />
-              <SmartKpiItem letter="R" label="Urgent Escalation Velocity" value={smartMetrics.escalationRate} target={5} unit="%" inverse={true} />
-              <SmartKpiItem letter="T" label="Compliance Accuracy" value={smartMetrics.slaRate} target={95} unit="%" />
-          </div>
-        </div>
-      </section>
+            {/* SMART Objectives */}
+            <section className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-brand-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+              <div className="relative">
+                <div className="flex items-center space-x-4 mb-6">
+                  <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] flex items-center">
+                    <div className="w-8 h-[2px] bg-brand-600 mr-3"></div>
+                    SMART Period Objectives
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                    <SmartKpiItem letter="S" label="Target Resolution Rate" value={smartMetrics.resolutionRate} target={90} unit="%" />
+                    <SmartKpiItem letter="M" label="Mean Resolution Cycle" value={smartMetrics.avgTime} target={4.0} unit="h" inverse={true} />
+                    <SmartKpiItem letter="A" label="Workload Density" value={smartMetrics.loadPerTech} target={5} unit=" t/t" inverse={true} />
+                    <SmartKpiItem letter="R" label="Urgent Escalation Velocity" value={smartMetrics.escalationRate} target={5} unit="%" inverse={true} />
+                    <SmartKpiItem letter="T" label="Compliance Accuracy" value={smartMetrics.slaRate} target={95} unit="%" />
+                </div>
+              </div>
+            </section>
 
-      {/* Analytics Visualization */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
-          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6 flex items-center">
-            <FireIcon className="w-4 h-4 mr-2 text-red-500" />
-            Risk Exposure Matrix (ISO 31000)
-          </h3>
-          <RiskHeatmapChart data={chartHistory} />
-        </div>
-        <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
-          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Operational Distribution</h3>
-          <TicketsByPriorityChart data={chartHistory} />
-        </div>
-        <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
-          <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Engagement Velocity</h3>
-          <TicketsByDateChart data={chartHistory} />
-        </div>
+            {/* Analytics Visualization */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6 flex items-center">
+                  <FireIcon className="w-4 h-4 mr-2 text-red-500" />
+                  Risk Exposure Matrix (ISO 31000)
+                </h3>
+                <RiskHeatmapChart data={chartHistory} />
+              </div>
+              <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Operational Distribution</h3>
+                <TicketsByPriorityChart data={chartHistory} />
+              </div>
+              <div className="bg-gray-800/50 backdrop-blur-md p-6 rounded-3xl border border-gray-700/50 shadow-2xl">
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-6">Engagement Velocity</h3>
+                <TicketsByDateChart data={chartHistory} />
+              </div>
+            </section>
+          </>
+        )}
       </section>
       
       {/* Filtering & Search */}
       <section className="space-y-4">
         <FilterControls
             searchTerm={searchTerm}
-            onSearchChange={(e) => setSearchTerm(e.target.value)}
+            onSearchChange={(e) => startTransition(() => setSearchTerm(e.target.value))}
             statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
+            onStatusChange={(v) => startTransition(() => setStatusFilter(v))}
             priorityFilter={priorityFilter}
-            onPriorityChange={setPriorityFilter}
+            onPriorityChange={(v) => startTransition(() => setPriorityFilter(v))}
             timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
+            onTimeRangeChange={(v) => startTransition(() => setTimeRange(v))}
             uniqueStatuses={uniqueStatuses}
             uniquePriorities={uniquePriorities}
             sortConfig={sortConfig}
             onSortChange={(k) => setSortConfig(p => ({ key: k, direction: p.key === k && p.direction === 'asc' ? 'desc' : 'asc' }))}
-            onJumpToDate={onJumpToDate}
+            onJumpToDate={(d) => startTransition(() => onJumpToDate(d))}
             availableDates={availableDates}
             currentDateKey={currentDateKey}
             startDate={startDate}
             endDate={endDate}
-            onStartDateChange={setStartDate}
-            onEndDateChange={setEndDate}
+            onStartDateChange={(v) => startTransition(() => setStartDate(v))}
+            onEndDateChange={(v) => startTransition(() => setEndDate(v))}
         />
       </section>
 
       {/* Data Tables */}
       <section className="space-y-8">
-        {filteredTickets.main.length > 0 && <MainTicketsTable tickets={filteredTickets.main} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
-        {filteredTickets.pm.length > 0 && <PmTicketsTable tickets={filteredTickets.pm} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
-        {filteredTickets.collab.length > 0 && <CollabTicketsTable tickets={filteredTickets.collab} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
-        {filteredTickets.pending.length > 0 && <PendingTicketsTable tickets={filteredTickets.pending} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
-        
-        {effectiveTimeRange === 'day' && !isGlobalSearch && dailyData.techTeamMetrics?.length > 0 && <TeamMetricsTable metrics={dailyData.techTeamMetrics} />}
+        {!isPending ? (
+          <>
+            {filteredTickets.main.length > 0 && <MainTicketsTable tickets={filteredTickets.main} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
+            {filteredTickets.pm.length > 0 && <PmTicketsTable tickets={filteredTickets.pm} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
+            {filteredTickets.collab.length > 0 && <CollabTicketsTable tickets={filteredTickets.collab} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
+            {filteredTickets.pending.length > 0 && <PendingTicketsTable tickets={filteredTickets.pending} onTicketClick={setSelectedTicket} sortConfig={sortConfig} onSort={() => {}} />}
+            
+            {effectiveTimeRange === 'day' && !isGlobalSearch && dailyData.techTeamMetrics?.length > 0 && <TeamMetricsTable metrics={dailyData.techTeamMetrics} />}
+          </>
+        ) : (
+          <div className="h-64 bg-gray-800/50 rounded-3xl border border-gray-700/50 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-8 h-8 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin"></div>
+              <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Re-calculating Service Records...</span>
+            </div>
+          </div>
+        )}
       </section>
       
       <TicketDetailModal isOpen={!!selectedTicket} onClose={() => setSelectedTicket(null)} ticket={selectedTicket} onUpdateTicket={onUpdateTicket} />
