@@ -10,7 +10,8 @@ import {
   PrinterIcon, 
   ShieldCheckIcon, 
   PuzzleIcon, 
-  ClipboardCheckIcon 
+  ClipboardCheckIcon,
+  ShieldExclamationIcon
 } from './icons.tsx';
 import type { ViewType } from '../types.ts';
 
@@ -68,12 +69,13 @@ const Header: React.FC<HeaderProps> = ({
             
             <nav className="hidden xl:flex items-center space-x-1 p-1 bg-gray-950/50 rounded-2xl border border-gray-800">
               <NavButton view="dashboard" label="Performance" icon={ChartBarIcon} />
-              <NavButton view="reports" label="Service Reports" icon={PrinterIcon} />
-              <NavButton view="checksheet" label="ISO Check Sheet" icon={ClipboardCheckIcon} />
-              <NavButton view="compliance" label="ISO Clauses" icon={ShieldCheckIcon} />
-              <NavButton view="fmea" label="FMEA Analysis" icon={PuzzleIcon} />
-              <NavButton view="operations" label="Operations" icon={ClockIcon} />
-              <NavButton view="staging" label="Audit Lab" icon={BeakerIcon} />
+              <NavButton view="reports" label="Reports" icon={PrinterIcon} />
+              <NavButton view="checksheet" label="Check Sheet" icon={ClipboardCheckIcon} />
+              <NavButton view="hirarc" label="HIRARC" icon={ShieldExclamationIcon} />
+              <NavButton view="compliance" label="ISO" icon={ShieldCheckIcon} />
+              <NavButton view="fmea" label="FMEA" icon={PuzzleIcon} />
+              <NavButton view="operations" label="Ops" icon={ClockIcon} />
+              <NavButton view="staging" label="Lab" icon={BeakerIcon} />
               <NavButton view="database" label="Dataset" icon={DatabaseIcon} />
             </nav>
           </div>

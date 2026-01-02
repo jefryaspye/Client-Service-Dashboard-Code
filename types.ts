@@ -144,6 +144,20 @@ export interface FmeaRecord {
   responsibility: string;
 }
 
+export interface HirarcRecord {
+  id: string;
+  workActivity: string;
+  hazard: string;
+  cause: string;
+  effect: string;
+  likelihood: number; // 1-5
+  severity: number;   // 1-5
+  riskLevel: number;  // L x S
+  riskCategory: 'Low' | 'Medium' | 'High' | 'Extreme';
+  controlMeasures: string;
+  responsibility: string;
+}
+
 export interface CheckSheetItem {
   id: string;
   category: string;
@@ -162,4 +176,4 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
-export type ViewType = 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations' | 'fmea' | 'checksheet';
+export type ViewType = 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations' | 'fmea' | 'checksheet' | 'hirarc';

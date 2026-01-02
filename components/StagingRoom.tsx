@@ -13,9 +13,9 @@ interface AnalyzedRow {
   issues: string[];
   isDuplicate: boolean;
   aiSuggestion?: {
-    suggestedClause: string;
+    clause: string;
     reason: string;
-    confidence: 'High' | 'Medium' | 'Low' | string;
+    confidenceScore: 'High' | 'Medium' | 'Low' | string;
   };
 }
 
@@ -88,7 +88,7 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
   
   const highConfidenceSuggestionsCount = useMemo(() => {
     if (!analysis) return 0;
-    return analysis.filter(row => row.aiSuggestion?.confidence === 'High').length;
+    return analysis.filter(row => row.aiSuggestion?.confidenceScore === 'High').length;
   }, [analysis]);
 
   const filteredAnalysis = useMemo(() => {
@@ -205,9 +205,9 @@ ${ticketList}
 **Instructions:**
 Return a JSON object with a "suggestions" array. Each suggestion must include:
 - "ticketId": The unique sequence ID.
-- "suggestedClause": The identified ISO standard.
+- "clause": The identified ISO standard.
 - "reason": Detailed justification quoting keywords from the ticket.
-- "confidence": 'High' | 'Medium' | 'Low' based on keyword alignment.`;
+- "confidenceScore": 'High' | 'Medium' | 'Low' based on keyword alignment.`;
         
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -223,11 +223,11 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
                                 type: Type.OBJECT,
                                 properties: {
                                     ticketId: { type: Type.STRING },
-                                    suggestedClause: { type: Type.STRING },
+                                    clause: { type: Type.STRING },
                                     reason: { type: Type.STRING },
-                                    confidence: { type: Type.STRING }
+                                    confidenceScore: { type: Type.STRING }
                                 },
-                                required: ["ticketId", "suggestedClause", "reason", "confidence"]
+                                required: ["ticketId", "clause", "reason", "confidenceScore"]
                             }
                         }
                     },
@@ -237,8 +237,8 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
         });
 
         const result = JSON.parse(response.text || '{"suggestions":[]}');
-        const suggestionsMap = new Map<string, { suggestedClause: string; reason: string; confidence: string }>(
-            result.suggestions.map((s: any) => [String(s.ticketId), { suggestedClause: s.suggestedClause, reason: s.reason, confidence: s.confidence }])
+        const suggestionsMap = new Map<string, { clause: string; reason: string; confidenceScore: string }>(
+            result.suggestions.map((s: any) => [String(s.ticketId), { clause: s.clause, reason: s.reason, confidenceScore: s.confidenceScore }])
         );
 
         setAnalysis(prev => {
@@ -289,8 +289,8 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
     setAnalysis(prevAnalysis => {
       if (!prevAnalysis) return null;
       return prevAnalysis.map(row => {
-        if (row.aiSuggestion?.confidence === 'High') {
-          const newRow = { ...row, data: { ...row.data, isoClause: row.aiSuggestion.suggestedClause } };
+        if (row.aiSuggestion?.confidenceScore === 'High') {
+          const newRow = { ...row, data: { ...row.data, isoClause: row.aiSuggestion.clause } };
           delete newRow.aiSuggestion;
           const isoIssueIndex = newRow.issues.findIndex(issue => issue.startsWith('Non-standard ISO'));
           if (isoIssueIndex > -1) newRow.issues.splice(isoIssueIndex, 1);
@@ -382,7 +382,7 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
               </div>
               <div className="bg-orange-900/20 p-4 rounded-lg border border-orange-900/30 text-center">
                 <div className="text-2xl font-bold text-orange-400">{stats?.warnings}</div>
-                <div className="text-xs text-orange-500 uppercase tracking-wider">Warnings</div>
+                <div className="text-xs text-green-500 uppercase tracking-wider">Warnings</div>
               </div>
               <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-900/30 text-center">
                 <div className="text-2xl font-bold text-blue-400">{Math.round(((stats?.valid || 0) + (stats?.warnings || 0)) / (stats?.total || 1) * 100)}%</div>
@@ -436,13 +436,13 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
                                   <div className="flex justify-between items-start">
                                       <div>
                                           <span className="text-[10px] font-black text-blue-300 uppercase block mb-1">AI Recommendation</span>
-                                          <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border ${getConfidenceClass(row.aiSuggestion.confidence)}`}>
-                                            {row.aiSuggestion.confidence} Confidence
+                                          <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border ${getConfidenceClass(row.aiSuggestion.confidenceScore)}`}>
+                                            {row.aiSuggestion.confidenceScore} Confidence
                                           </span>
                                       </div>
-                                      <button onClick={() => handleApplySuggestion(row.data.ticketIDsSequence, row.aiSuggestion!.suggestedClause)} className="px-2 py-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-md">Apply</button>
+                                      <button onClick={() => handleApplySuggestion(row.data.ticketIDsSequence, row.aiSuggestion!.clause)} className="px-2 py-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-md">Apply</button>
                                   </div>
-                                  <p className="text-blue-400 font-mono text-xs mt-2 font-bold">{row.aiSuggestion.suggestedClause}</p>
+                                  <p className="text-blue-400 font-mono text-xs mt-2 font-bold">{row.aiSuggestion.clause}</p>
                                   <p className="text-gray-500 text-[10px] italic mt-1 leading-snug">"{row.aiSuggestion.reason}"</p>
                               </div>
                            )}
