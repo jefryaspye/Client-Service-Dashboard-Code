@@ -1,7 +1,4 @@
 
-// Updated: Enhanced responsive design for all ticket tables. 
-// Introduced a dedicated MobileTicketCard for small screens to better display metadata.
-// Columns are hidden responsively on larger screens, while mobile users get a rich card view.
 import React, { useState, useMemo } from 'react';
 import type { MainTicket, TechTeamMetric, UpcomingProject, SortConfig } from '../types';
 import { ChevronDownIcon, ChevronRightIcon, ClockIcon } from './icons';
@@ -44,7 +41,7 @@ const MobileTicketCard: React.FC<{ ticket: MainTicket; onClick: () => void }> = 
           <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">
             #{ticket.ticketNumber}
           </div>
-          <h4 className="text-sm font-bold text-white leading-snug truncate">
+          <h4 className="text-sm font-bold text-white leading-snug wrap-safe">
             {ticket.item}
           </h4>
         </div>
@@ -70,13 +67,13 @@ const MobileTicketCard: React.FC<{ ticket: MainTicket; onClick: () => void }> = 
             {ticket.zone && (
               <div>
                 <span className="block text-[8px] text-gray-600 uppercase font-bold tracking-tighter">Zone</span>
-                <span className="text-[11px] text-gray-300 font-bold truncate block">{ticket.zone}</span>
+                <span className="text-[11px] text-gray-300 font-bold wrap-safe block">{ticket.zone}</span>
               </div>
             )}
             {ticket.unit && (
               <div>
                 <span className="block text-[8px] text-gray-600 uppercase font-bold tracking-tighter">Unit</span>
-                <span className="text-[11px] text-gray-300 font-bold truncate block">{ticket.unit}</span>
+                <span className="text-[11px] text-gray-300 font-bold wrap-safe block">{ticket.unit}</span>
               </div>
             )}
           </div>
@@ -105,7 +102,7 @@ const GroupHeaderRow: React.FC<{
                 <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}>
                     <ChevronDownIcon className="w-4 h-4 text-blue-400" />
                 </div>
-                <span className="text-sm font-bold text-white uppercase tracking-wider">{name || 'Unassigned'}</span>
+                <span className="text-sm font-bold text-white uppercase tracking-wider wrap-safe">{name || 'Unassigned'}</span>
                 <span className="text-[10px] font-bold bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full border border-blue-800/50">
                     {count} {count === 1 ? 'Record' : 'Records'}
                 </span>
@@ -182,17 +179,17 @@ const GenericTicketsTable = <T extends MainTicket>({ tickets, onTicketClick, tit
                                     >
                                         <td className="px-4 py-5 text-gray-500 text-center text-[11px] font-bold">{i + 1}</td>
                                         <td className="px-4 py-5">
-                                            <div className="font-bold text-white group-hover:text-blue-400 truncate max-w-xs transition-colors" title={t.item}>
+                                            <div className="font-bold text-white group-hover:text-blue-400 wrap-safe max-w-sm transition-colors" title={t.item}>
                                                 {t.item}
                                             </div>
                                             <div className="mt-1 flex items-center gap-3">
                                                 {t.zone && (
-                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter wrap-safe">
                                                         Z: <span className="text-gray-400">{t.zone}</span>
                                                     </span>
                                                 )}
                                                 {t.unit && (
-                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter wrap-safe">
                                                         U: <span className="text-gray-400">{t.unit}</span>
                                                     </span>
                                                 )}
@@ -203,7 +200,7 @@ const GenericTicketsTable = <T extends MainTicket>({ tickets, onTicketClick, tit
                                         <td className="px-4 py-5 text-center"><PriorityBadge priority={t.priority} /></td>
                                         <td className="hidden xl:table-cell px-4 py-5">
                                           {t.isoClause && t.isoClause !== 'N/A' ? (
-                                            <span className="text-[10px] font-mono text-teal-400 bg-teal-950/40 px-2.5 py-1 rounded-lg border border-teal-800/30 shadow-sm">
+                                            <span className="text-[10px] font-mono text-teal-400 bg-teal-950/40 px-2.5 py-1 rounded-lg border border-teal-800/30 shadow-sm wrap-safe">
                                               {t.isoClause}
                                             </span>
                                           ) : (
@@ -229,7 +226,7 @@ const GenericTicketsTable = <T extends MainTicket>({ tickets, onTicketClick, tit
                         >
                             <div className="flex items-center gap-2">
                                 <ChevronDownIcon className={`w-3 h-3 text-blue-400 transition-transform ${expandedGroups.has(name) ? '' : '-rotate-90'}`} />
-                                <span className="text-[11px] font-black text-gray-300 uppercase tracking-widest">{name || 'Unassigned'}</span>
+                                <span className="text-[11px] font-black text-gray-300 uppercase tracking-widest wrap-safe">{name || 'Unassigned'}</span>
                             </div>
                             <span className="text-[9px] font-black bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded-full border border-blue-800/30">
                                 {items.length}
@@ -275,7 +272,7 @@ export const TeamMetricsTable: React.FC<{ metrics: TechTeamMetric[] }> = ({ metr
                 <tbody className="divide-y divide-gray-700/30">
                     {metrics.map(m => (
                         <tr key={m.id} className="hover:bg-gray-700/20 transition-colors">
-                            <td className="px-6 py-4 font-black text-white">{m.name}</td>
+                            <td className="px-6 py-4 font-black text-white wrap-safe">{m.name}</td>
                             <td className="px-6 py-4 text-center text-blue-400 font-black">{m.inProgress}</td>
                             <td className="hidden sm:table-cell px-6 py-4 text-center font-bold text-gray-500">{m.totalTickets}</td>
                             <td className="px-6 py-4 text-right font-mono font-black text-gray-100">{m.totalWorkHours}h</td>

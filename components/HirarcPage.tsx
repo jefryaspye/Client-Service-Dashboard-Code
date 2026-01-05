@@ -1,7 +1,19 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { HirarcRecord, HistoricalTicket } from '../types.ts';
-import { ShieldExclamationIcon, ShieldCheckIcon, BeakerIcon, ChartBarIcon, DownloadIcon, ExclamationTriangleIcon, FireIcon, ClockIcon, ChevronRightIcon } from './icons.tsx';
+import { 
+  ShieldExclamationIcon, 
+  ShieldCheckIcon, 
+  BeakerIcon, 
+  ChartBarIcon, 
+  DownloadIcon, 
+  ExclamationTriangleIcon, 
+  FireIcon, 
+  ClockIcon, 
+  ChevronRightIcon,
+  TicketIcon,
+  DatabaseIcon
+} from './icons.tsx';
 import { GoogleGenAI, Type } from "@google/genai";
 
 const getRiskCategory = (score: number): HirarcRecord['riskCategory'] => {
@@ -63,6 +75,8 @@ const HirarcPage: React.FC<{ historicalData: HistoricalTicket[] }> = ({ historic
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [analysisInput, setAnalysisInput] = useState('');
   const [showInsights, setShowInsights] = useState(false);
+  const [showHistoryPicker, setShowHistoryPicker] = useState(false);
+  const [ticketSearchTerm, setTicketSearchTerm] = useState('');
   const [batchProgress, setBatchProgress] = useState<{ current: number, total: number } | null>(null);
 
   useEffect(() => {
@@ -93,25 +107,50 @@ const HirarcPage: React.FC<{ historicalData: HistoricalTicket[] }> = ({ historic
     }).slice(0, 15);
   }, [historicalData, records]);
 
-  const runAiAnalysis = useCallback(async (input?: string, ticketRef?: string) => {
+  const filteredTickets = useMemo(() => {
+    if (!ticketSearchTerm.trim()) return historicalData.slice(0, 50);
+    const term = ticketSearchTerm.toLowerCase();
+    return historicalData.filter(t => 
+      t.subject.toLowerCase().includes(term) || 
+      t.ticketIDsSequence.toLowerCase().includes(term) ||
+      t.assignedTo.toLowerCase().includes(term)
+    ).slice(0, 50);
+  }, [historicalData, ticketSearchTerm]);
+
+  const runAiAnalysis = useCallback(async (input?: string, ticketRef?: string, ticketData?: HistoricalTicket) => {
     const finalInput = input || analysisInput;
     if (!finalInput.trim()) return;
     setIsAiLoading(true);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Conduct a HIRARC (Hazard Identification, Risk Assessment, and Risk Control) analysis for the following operational activity or incident: "${finalInput}".
       
-Analyze the context and provide:
-1. Work Activity Title.
-2. Primary Hazard.
-3. Root Cause (Reference incident context if provided).
-4. Potential Effects (Health/Safety).
-5. Numerical Assessment: Likelihood (1-5) and Severity (1-5).
-6. Control Measures (Hierarchical approach: Elimination, Substitution, Engineering, Admin, PPE).
-7. Primary Responsibility.
+      let contextString = `Activity: "${finalInput}"`;
+      if (ticketData) {
+        contextString += `
+        Ticket Details:
+        - Subject: ${ticketData.subject}
+        - Tags: ${ticketData.tags}
+        - Tech Activities: ${ticketData.activities || 'None'}
+        - Root Cause: ${ticketData.rootCause || 'Unknown'}
+        - Corrective Action: ${ticketData.correctiveAction || 'None'}
+        `;
+      }
 
-Output as JSON.`;
+      const prompt = `Conduct a HIRARC (Hazard Identification, Risk Assessment, and Risk Control) analysis for the following operational context:
+      
+      ${contextString}
+      
+Analyze the provided context and generate a safety record:
+1. Work Activity Title: Concise operational name.
+2. Primary Hazard: The specific physical or environmental danger.
+3. Cause: How the hazard manifests (Reference ticket ID ${ticketRef || 'Manual Entry'}).
+4. Potential Effects: Specific health or safety outcomes.
+5. Assessment (1-5): Likelihood and Severity based on context evidence.
+6. Control Measures: Hierarchical mitigation (Elimination -> Admin -> PPE).
+7. Responsibility: Primary role responsible for control execution.
+
+Output as JSON only.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
@@ -144,7 +183,7 @@ Output as JSON.`;
         id: `h-auto-${Date.now()}-${ticketRef || 'manual'}`,
         workActivity: result.workActivity,
         hazard: result.hazard,
-        cause: ticketRef ? `Incident Ref: ${ticketRef} - ${result.cause}` : result.cause,
+        cause: ticketRef ? `Ticket Ref: ${ticketRef} - ${result.cause}` : result.cause,
         effect: result.effect,
         likelihood: likelihood,
         severity: severity,
@@ -159,8 +198,10 @@ Output as JSON.`;
       return newRecord;
     } catch (e) {
       console.error(e);
+      alert('Neural analysis failed. Verify your API Key and input context.');
     } finally {
       setIsAiLoading(false);
+      setShowHistoryPicker(false);
     }
   }, [analysisInput]);
 
@@ -173,8 +214,7 @@ Output as JSON.`;
     for (let i = 0; i < detectedIncidents.length; i++) {
         const incident = detectedIncidents[i];
         setBatchProgress({ current: i + 1, total: detectedIncidents.length });
-        await runAiAnalysis(`${incident.ticket.subject}. Context: ${incident.ticket.activities || ''}`, incident.ticket.ticketIDsSequence);
-        // Small delay to prevent rate limits
+        await runAiAnalysis(`${incident.ticket.subject}. Context: ${incident.ticket.activities || ''}`, incident.ticket.ticketIDsSequence, incident.ticket);
         await new Promise(r => setTimeout(r, 500));
     }
     
@@ -186,10 +226,8 @@ Output as JSON.`;
     setRecords(prev => prev.map(r => {
       if (r.id === id) {
         const updated = { ...r, ...updates };
-        if (updates.likelihood !== undefined || updates.severity !== undefined) {
-          updated.riskLevel = updated.likelihood * updated.severity;
-          updated.riskCategory = getRiskCategory(updated.riskLevel);
-        }
+        updated.riskLevel = updated.likelihood * updated.severity;
+        updated.riskCategory = getRiskCategory(updated.riskLevel);
         return updated;
       }
       return r;
@@ -222,7 +260,7 @@ Output as JSON.`;
             className={`px-6 py-3 border transition-all text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 ${showInsights ? 'bg-brand-600 border-brand-500 text-white' : 'bg-gray-900 border-gray-700 text-brand-400 hover:bg-gray-800'}`}
           >
             <BeakerIcon className="w-4 h-4" />
-            {showInsights ? 'Hide Insights' : `Dataset Insights (${detectedIncidents.length})`}
+            {showInsights ? 'Hide Insights' : `Safety Monitor (${detectedIncidents.length})`}
           </button>
           <button 
             onClick={() => {
@@ -242,6 +280,69 @@ Output as JSON.`;
         </div>
       </div>
 
+      {/* History Picker Modal */}
+      {showHistoryPicker && (
+        <div className="fixed inset-0 bg-gray-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+           <div className="bg-gray-900 border border-gray-700 w-full max-w-4xl max-h-[85vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden">
+              <div className="p-8 border-b border-gray-800 flex justify-between items-center bg-gray-950/40">
+                  <div className="flex items-center gap-4">
+                    <DatabaseIcon className="w-6 h-6 text-brand-400" />
+                    <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-widest">Service History Explorer</h2>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Select an incident to auto-generate risk controls</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowHistoryPicker(false)} className="p-3 text-gray-500 hover:text-white transition-all">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+              </div>
+              <div className="p-8 border-b border-gray-800">
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <svg className="w-4 h-4 text-gray-600 group-focus-within:text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                    <input 
+                      type="text"
+                      placeholder="Search tickets by ID, Subject or Assignee..."
+                      value={ticketSearchTerm}
+                      onChange={(e) => setTicketSearchTerm(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-2xl py-4 pl-12 pr-6 text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none transition-all placeholder:text-gray-700 font-bold"
+                    />
+                  </div>
+              </div>
+              <div className="flex-grow overflow-y-auto custom-scrollbar p-8">
+                  <div className="space-y-3">
+                      {filteredTickets.map(t => {
+                          const isAlreadyMapped = records.some(r => r.cause.includes(t.ticketIDsSequence));
+                          return (
+                            <button 
+                                key={t.ticketIDsSequence}
+                                onClick={() => runAiAnalysis(t.subject, t.ticketIDsSequence, t)}
+                                className="w-full text-left bg-gray-800/40 hover:bg-gray-800 border border-gray-700/50 hover:border-brand-500/50 p-6 rounded-2xl transition-all group flex items-center justify-between"
+                            >
+                                <div className="flex-1 pr-6">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="text-[10px] font-mono font-black text-brand-400">#{t.ticketIDsSequence}</span>
+                                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border ${isAlreadyMapped ? 'bg-green-900/30 text-green-400 border-green-800/50' : 'bg-gray-900 text-gray-500 border-gray-700'}`}>
+                                            {isAlreadyMapped ? 'Already Registered' : 'Available'}
+                                        </span>
+                                    </div>
+                                    <h4 className="text-sm font-black text-white group-hover:text-brand-400 transition-colors uppercase leading-tight">{t.subject}</h4>
+                                    <p className="text-[10px] text-gray-500 mt-2 font-medium">Assigned to: {t.assignedTo} • {t.createdOn}</p>
+                                </div>
+                                <ChevronRightIcon className="w-5 h-5 text-gray-700 group-hover:text-brand-500 transition-colors" />
+                            </button>
+                          );
+                      })}
+                  </div>
+              </div>
+              <div className="p-8 bg-gray-950/40 border-t border-gray-800 text-center">
+                  <p className="text-[9px] text-gray-600 font-black uppercase tracking-widest">Showing top 50 results for the current search</p>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Hazard Intelligence Monitor */}
       {showInsights && (
         <div className="bg-brand-950/20 border border-brand-500/30 rounded-[2.5rem] p-10 shadow-2xl animate-in slide-in-from-top-4 duration-500">
@@ -251,7 +352,7 @@ Output as JSON.`;
                   <ExclamationTriangleIcon className="w-6 h-6 text-brand-400" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-white uppercase tracking-widest">Dataset Hazard Monitor</h2>
+                  <h2 className="text-xl font-black text-white uppercase tracking-widest">Automatic Hazard Monitor</h2>
                   <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Found {detectedIncidents.length} unmapped safety triggers in your current dataset</p>
                 </div>
               </div>
@@ -293,7 +394,7 @@ Output as JSON.`;
                         )}
                     </div>
                     <button 
-                      onClick={() => runAiAnalysis(`${incident.ticket.subject}. Context: ${incident.ticket.activities || ''}`, incident.ticket.ticketIDsSequence)}
+                      onClick={() => runAiAnalysis(`${incident.ticket.subject}. Context: ${incident.ticket.activities || ''}`, incident.ticket.ticketIDsSequence, incident.ticket)}
                       disabled={isAiLoading}
                       className="w-full mt-4 py-3 bg-gray-950 border border-gray-800 hover:border-brand-500/50 text-[9px] font-black text-gray-400 hover:text-white uppercase tracking-[0.2em] rounded-xl flex items-center justify-center gap-2 group transition-all"
                     >
@@ -313,16 +414,25 @@ Output as JSON.`;
         </div>
       )}
 
-      {/* Manual Analysis Panel */}
+      {/* Ad-hoc Assessment Panel */}
       {!showInsights && (
         <div className="bg-gray-900/50 border border-brand-500/20 rounded-[2.5rem] p-10 shadow-2xl overflow-hidden relative group">
             <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-700">
             <FireIcon className="w-64 h-64 text-brand-400" />
             </div>
             <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-6">
-                <span className="text-2xl">⚡</span>
-                <h2 className="text-lg font-black text-white uppercase tracking-widest">Ad-hoc Risk Assessment</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+                <div className="flex items-center gap-3">
+                    <span className="text-2xl">⚡</span>
+                    <h2 className="text-lg font-black text-white uppercase tracking-widest">Ad-hoc Risk Assessment</h2>
+                </div>
+                <button 
+                    onClick={() => setShowHistoryPicker(true)}
+                    className="flex items-center gap-3 px-6 py-3 bg-gray-950 border border-gray-800 hover:border-brand-500/50 text-[10px] font-black text-gray-400 hover:text-white uppercase tracking-widest rounded-xl transition-all shadow-xl"
+                >
+                    <TicketIcon className="w-4 h-4" />
+                    Browse Service History
+                </button>
             </div>
             <div className="grid lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 space-y-4">
@@ -432,7 +542,11 @@ Output as JSON.`;
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/30">
-                    {records.map(r => (
+                    {records.map(r => {
+                        const currentRiskLevel = r.likelihood * r.severity;
+                        const currentRiskCategory = getRiskCategory(currentRiskLevel);
+                        
+                        return (
                         <tr key={r.id} className="hover:bg-white/5 transition-colors group">
                             <td className="px-6 py-5 align-top min-w-[200px]">
                                 <input 
@@ -454,6 +568,7 @@ Output as JSON.`;
                                 >
                                   {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
                                 </select>
+                                <div className="text-[8px] font-bold text-gray-600 mt-1 uppercase">Likelihood</div>
                             </td>
                             <td className="px-6 py-5 text-center align-top">
                                 <select 
@@ -463,12 +578,14 @@ Output as JSON.`;
                                 >
                                   {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
                                 </select>
+                                <div className="text-[8px] font-bold text-gray-600 mt-1 uppercase">Severity</div>
                             </td>
                             <td className="px-6 py-5 text-center align-top">
-                                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl font-black border transition-all shadow-lg ${getRiskColor(r.riskCategory)}`}>
-                                    {r.riskLevel}
+                                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl font-black border transition-all shadow-lg ${getRiskColor(currentRiskCategory)}`}>
+                                    {currentRiskLevel}
                                 </div>
-                                <div className="text-[8px] font-black uppercase mt-1 opacity-40">{r.riskCategory}</div>
+                                <div className="text-[8px] font-black uppercase mt-1 opacity-40">{currentRiskCategory}</div>
+                                <div className="text-[7px] font-mono text-gray-600 mt-0.5">({r.likelihood} × {r.severity})</div>
                             </td>
                             <td className="px-6 py-5 align-top min-w-[320px]">
                                 <textarea 
@@ -487,7 +604,7 @@ Output as JSON.`;
                                 </button>
                             </td>
                         </tr>
-                    ))}
+                    )})}
                 </tbody>
             </table>
         </div>

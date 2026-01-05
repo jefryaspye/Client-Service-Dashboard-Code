@@ -15,7 +15,7 @@ interface AnalyzedRow {
   aiSuggestion?: {
     clause: string;
     reason: string;
-    confidenceScore: 'High' | 'Medium' | 'Low' | string;
+    confidenceScore: 'High' | 'Medium' | 'Low';
   };
 }
 
@@ -185,29 +185,26 @@ const StagingRoom: React.FC<StagingRoomProps> = ({ historicalData, onCommit }) =
 
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const standardsList = COMPLIANCE_STANDARDS.map(s => `- ${s.standard}: ${s.scope}`).join('\n');
+        const standardsList = COMPLIANCE_STANDARDS.map(s => `Standard: "${s.standard}", Domain: "${s.domain}", Context: "${s.scope}"`).join('\n');
         const ticketList = ticketsToAnalyze.map(t => {
             const subject = t.data.subject;
             const activities = t.data.activities || t.data.description || '';
-            let context = `Subject: "${subject}"`;
-            if (activities) context += `, Activities: "${activities}"`;
-            return `- ID: ${t.data.ticketIDsSequence}, ${context}`;
+            const tags = t.data.tags || '';
+            return `- ID: ${t.data.ticketIDsSequence}, Subject: "${subject}", Activities: "${activities}", Tags: "${tags}"`;
         }).join('\n');
         
-        const prompt = `You are a compliance expert. Map these technical helpdesk tickets to the most relevant ISO clause.
+        const prompt = `Act as an expert ISO Compliance Auditor. Map the following technical helpdesk tickets to the most appropriate ISO standard from the provided reference list.
 
-**Standards:**
+**REFERENCE STANDARDS:**
 ${standardsList}
 
-**Tickets:**
+**TICKETS TO ANALYZE:**
 ${ticketList}
 
-**Instructions:**
-Return a JSON object with a "suggestions" array. Each suggestion must include:
-- "ticketId": The unique sequence ID.
-- "clause": The identified ISO standard.
-- "reason": Detailed justification quoting keywords from the ticket.
-- "confidenceScore": 'High' | 'Medium' | 'Low' based on keyword alignment.`;
+**REQUIREMENTS:**
+1. Match based on the core operational nature of the incident.
+2. Assign a confidence score ('High', 'Medium', 'Low') based on explicit keyword alignment.
+3. Return a strictly valid JSON object.`;
         
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -225,7 +222,10 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
                                     ticketId: { type: Type.STRING },
                                     clause: { type: Type.STRING },
                                     reason: { type: Type.STRING },
-                                    confidenceScore: { type: Type.STRING }
+                                    confidenceScore: { 
+                                        type: Type.STRING, 
+                                        enum: ["High", "Medium", "Low"] 
+                                    }
                                 },
                                 required: ["ticketId", "clause", "reason", "confidenceScore"]
                             }
@@ -237,8 +237,12 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
         });
 
         const result = JSON.parse(response.text || '{"suggestions":[]}');
-        const suggestionsMap = new Map<string, { clause: string; reason: string; confidenceScore: string }>(
-            result.suggestions.map((s: any) => [String(s.ticketId), { clause: s.clause, reason: s.reason, confidenceScore: s.confidenceScore }])
+        const suggestionsMap = new Map<string, { clause: string; reason: string; confidenceScore: 'High' | 'Medium' | 'Low' }>(
+            result.suggestions.map((s: any) => [String(s.ticketId), { 
+                clause: s.clause, 
+                reason: s.reason, 
+                confidenceScore: s.confidenceScore as 'High' | 'Medium' | 'Low' 
+            }])
         );
 
         setAnalysis(prev => {
@@ -246,7 +250,7 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
             return prev.map(row => {
                 const suggestion = suggestionsMap.get(String(row.data.ticketIDsSequence));
                 if (suggestion) {
-                    return { ...row, aiSuggestion: suggestion as AnalyzedRow['aiSuggestion'] };
+                    return { ...row, aiSuggestion: suggestion };
                 }
                 return row;
             });
@@ -342,116 +346,147 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
             <ShieldCheckIcon className="w-8 h-8 mr-3 text-blue-400" />
             Data Reconciliation & Staging
           </h2>
-          <p className="text-gray-400 mt-2">
-            Audit helpdesk exports for compliance errors, missing critical identifiers, or date anomalies.
-          </p>
+          <p className="text-gray-400 mt-2 font-bold uppercase text-[10px] tracking-widest">Helpdesk Audit Protocol v2.5</p>
         </div>
 
         {!analysis ? (
           <div className="space-y-4">
             <textarea
-              className="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm text-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              placeholder="Paste CSV content here..."
+              className="w-full h-64 bg-gray-950 border border-gray-800 rounded-2xl p-6 font-mono text-xs text-gray-300 focus:ring-2 focus:ring-brand-500/50 outline-none transition-all shadow-inner"
+              placeholder="Paste raw helpdesk CSV data here..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
             />
             <button
               onClick={runAnalysis}
               disabled={!inputText.trim() || isProcessing}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-black uppercase text-xs rounded-2xl transition-all flex items-center justify-center space-x-3 shadow-xl shadow-brand-900/40 disabled:opacity-50"
             >
-              {isProcessing ? <span className="animate-pulse">Auditing Rows...</span> : (
-                <><DocumentCheckIcon className="w-5 h-5" /><span>Analyze Data Integrity</span></>
+              {isProcessing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                    <span className="tracking-widest">Auditing Infrastructure Data...</span>
+                  </>
+              ) : (
+                <><DocumentCheckIcon className="w-5 h-5" /><span className="tracking-widest">Validate Dataset Integrity</span></>
               )}
             </button>
           </div>
         ) : (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="bg-gray-900 p-4 rounded-lg border border-gray-700 text-center">
-                <div className="text-2xl font-bold text-white">{stats?.total}</div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider">Total Rows</div>
+              <div className="bg-gray-950/50 p-6 rounded-2xl border border-gray-800 text-center flex flex-col justify-center">
+                <div className="text-2xl font-black text-white tabular-nums">{stats?.total}</div>
+                <div className="text-[9px] text-gray-600 font-black uppercase tracking-widest mt-1">Total Records</div>
               </div>
-              <div className="bg-green-900/20 p-4 rounded-lg border border-green-900/30 text-center">
-                <div className="text-2xl font-bold text-green-400">{stats?.valid}</div>
-                <div className="text-xs text-green-500 uppercase tracking-wider">Verified</div>
+              <div className="bg-green-950/20 p-6 rounded-2xl border border-green-800/30 text-center flex flex-col justify-center">
+                <div className="text-2xl font-black text-green-400 tabular-nums">{stats?.valid}</div>
+                <div className="text-[9px] text-green-600 font-black uppercase tracking-widest mt-1">Verified Clean</div>
               </div>
-              <div className="bg-red-900/20 p-4 rounded-lg border border-red-900/30 text-center">
-                <div className="text-2xl font-bold text-red-400">{stats?.errors}</div>
-                <div className="text-xs text-red-500 uppercase tracking-wider">Critical</div>
+              <div className="bg-red-950/20 p-6 rounded-2xl border border-red-800/30 text-center flex flex-col justify-center">
+                <div className="text-2xl font-black text-red-400 tabular-nums">{stats?.errors}</div>
+                <div className="text-[9px] text-red-600 font-black uppercase tracking-widest mt-1">Critical Issues</div>
               </div>
-              <div className="bg-orange-900/20 p-4 rounded-lg border border-orange-900/30 text-center">
-                <div className="text-2xl font-bold text-orange-400">{stats?.warnings}</div>
-                <div className="text-xs text-green-500 uppercase tracking-wider">Warnings</div>
+              <div className="bg-orange-950/20 p-6 rounded-2xl border border-orange-800/30 text-center flex flex-col justify-center">
+                <div className="text-2xl font-black text-orange-400 tabular-nums">{stats?.warnings}</div>
+                <div className="text-[9px] text-orange-600 font-black uppercase tracking-widest mt-1">Compliance Flags</div>
               </div>
-              <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-900/30 text-center">
-                <div className="text-2xl font-bold text-blue-400">{Math.round(((stats?.valid || 0) + (stats?.warnings || 0)) / (stats?.total || 1) * 100)}%</div>
-                <div className="text-xs text-blue-500 uppercase tracking-wider">Health Score</div>
+              <div className="bg-brand-950/20 p-6 rounded-2xl border border-brand-800/30 text-center flex flex-col justify-center">
+                <div className="text-2xl font-black text-brand-400 tabular-nums">{Math.round(((stats?.valid || 0) + (stats?.warnings || 0)) / (stats?.total || 1) * 100)}%</div>
+                <div className="text-[9px] text-brand-600 font-black uppercase tracking-widest mt-1">Quality Index</div>
               </div>
             </div>
             
             <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-700 gap-4">
-                <div className="flex overflow-x-auto w-full sm:w-auto">
-                   <button onClick={() => setActiveTab('all')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'all' ? 'border-blue-500 text-white' : 'border-transparent text-gray-500 hover:text-white'}`}>All Rows</button>
-                   <button onClick={() => setActiveTab('errors')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'errors' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Critical ({stats?.errors})</button>
-                   <button onClick={() => setActiveTab('warnings')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'warnings' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Warnings ({stats?.warnings})</button>
-                   <button onClick={() => setActiveTab('duplicates')} className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'duplicates' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-500 hover:text-white'}`}>Conflicts ({stats?.duplicates})</button>
+                <div className="flex overflow-x-auto w-full sm:w-auto p-1 bg-gray-950/50 rounded-xl border border-gray-800">
+                   <button onClick={() => setActiveTab('all')} className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'all' ? 'bg-gray-800 text-white' : 'text-gray-600 hover:text-gray-300'}`}>All</button>
+                   <button onClick={() => setActiveTab('errors')} className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'errors' ? 'bg-red-900/40 text-red-400' : 'text-gray-600 hover:text-gray-300'}`}>Critical</button>
+                   <button onClick={() => setActiveTab('warnings')} className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'warnings' ? 'bg-orange-900/40 text-orange-400' : 'text-gray-600 hover:text-gray-300'}`}>Warnings</button>
+                   <button onClick={() => setActiveTab('duplicates')} className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'duplicates' ? 'bg-purple-900/40 text-purple-400' : 'text-gray-600 hover:text-gray-300'}`}>Conflicts</button>
                 </div>
-                <div className="flex items-center gap-2 pb-2 sm:pb-0">
+                <div className="flex items-center gap-3 pb-2 sm:pb-0">
                     {highConfidenceSuggestionsCount > 0 && (
-                        <button onClick={handleBatchApplyHighConfidence} className="px-3 py-1.5 text-[10px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2">
+                        <button onClick={handleBatchApplyHighConfidence} className="px-5 py-3 text-[9px] font-black uppercase tracking-widest text-white bg-green-600 hover:bg-green-500 rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-green-900/20">
                            <ShieldCheckIcon className="w-3.5 h-3.5" />
                            {`Apply ${highConfidenceSuggestionsCount} High Suggestions`}
                         </button>
                     )}
-                    <button onClick={runAiClauseAnalysis} disabled={isAiAnalyzing} className="px-3 py-1.5 text-[10px] font-bold text-white bg-brand-600 hover:bg-brand-500 rounded-lg transition-colors disabled:opacity-50">
-                      {isAiAnalyzing ? 'Analyzing...' : '✨ AI Clause Mapping'}
+                    <button 
+                      onClick={runAiClauseAnalysis} 
+                      disabled={isAiAnalyzing} 
+                      className="px-6 py-3 text-[9px] font-black uppercase tracking-widest text-white bg-brand-600 hover:bg-brand-500 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-brand-900/30"
+                    >
+                      {isAiAnalyzing ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                          <span>Mapping Logic...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-sm">✨</span>
+                          <span>Audit Mapping</span>
+                        </>
+                      )}
                     </button>
                 </div>
             </div>
 
-            <div className="max-h-[400px] overflow-auto rounded-lg border border-gray-700 bg-gray-900/50">
-               <table className="min-w-full text-xs text-left text-gray-400">
-                  <thead className="bg-gray-800 text-gray-300 uppercase sticky top-0">
+            <div className="max-h-[500px] overflow-auto rounded-[1.5rem] border border-gray-700 bg-gray-950/50 custom-scrollbar shadow-inner">
+               <table className="min-w-full text-[11px] text-left text-gray-400">
+                  <thead className="bg-gray-900 text-gray-400 uppercase font-black tracking-widest sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-2 w-16">Row ID</th>
-                      <th className="px-4 py-2">Preview</th>
-                      <th className="px-4 py-2">Audit Feedback</th>
-                      <th className="px-4 py-2 text-center w-24">Status</th>
+                      <th className="px-6 py-4 w-20">Seq ID</th>
+                      <th className="px-6 py-4">Context</th>
+                      <th className="px-6 py-4">Audit Intel & ISO Mapping</th>
+                      <th className="px-6 py-4 text-center w-24">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
                     {filteredAnalysis.map((row, i) => (
-                      <tr key={i} className={`${row.status === 'error' ? 'bg-red-900/10' : row.status === 'warning' ? 'bg-orange-900/10' : ''} hover:bg-white/5 transition-colors`}>
-                        <td className="px-4 py-3 font-mono text-gray-300">{row.data.ticketIDsSequence || <span className="text-red-500 font-black">MISSING</span>}</td>
-                        <td className="px-4 py-3 truncate max-w-[200px] font-medium">{row.data.subject || 'N/A'}</td>
-                        <td className="px-4 py-3">
-                           {row.isDuplicate && <span className="text-purple-400 font-bold block mb-1">ID exists in master history</span>}
-                           {row.issues.map((msg, j) => (
-                             <span key={j} className={`${row.status === 'error' ? 'text-red-400 font-bold' : 'text-orange-400'} block`}>• {msg}</span>
-                           ))}
-                           {row.issues.length === 0 && !row.isDuplicate && <span className="text-green-500 font-medium">Verified</span>}
+                      <tr key={i} className={`${row.status === 'error' ? 'bg-red-950/10' : row.status === 'warning' ? 'bg-orange-950/10' : ''} hover:bg-white/5 transition-colors group`}>
+                        <td className="px-6 py-6 font-mono text-gray-300 align-top font-bold">#{row.data.ticketIDsSequence || <span className="text-red-500 font-black underline">MISSING</span>}</td>
+                        <td className="px-6 py-6 align-top">
+                          <div className="max-w-[220px] font-black text-gray-200 uppercase leading-tight">{row.data.subject || 'N/A'}</div>
+                          <div className="text-[10px] text-gray-600 mt-2 font-bold uppercase tracking-tighter">Tags: {row.data.tags || 'None'}</div>
+                        </td>
+                        <td className="px-6 py-6 align-top">
+                           {row.isDuplicate && <div className="text-purple-400 font-black uppercase text-[10px] tracking-widest mb-2 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></div> Sequence conflict</div>}
+                           <div className="space-y-1 mb-4">
+                            {row.issues.map((msg, j) => (
+                                <span key={j} className={`${row.status === 'error' ? 'text-red-400' : 'text-orange-400'} block font-bold`}>⚡ {msg}</span>
+                            ))}
+                            {row.issues.length === 0 && !row.isDuplicate && !row.aiSuggestion && <span className="text-green-500 font-black uppercase text-[9px] tracking-widest">ISO 9001 Alignment Valid</span>}
+                           </div>
+                           
                            {row.aiSuggestion && (
-                              <div className="mt-2 p-3 bg-blue-900/20 rounded-lg border border-blue-800/50">
-                                  <div className="flex justify-between items-start">
+                              <div className="p-5 bg-gray-950 rounded-2xl border border-blue-900/30 shadow-2xl animate-in slide-in-from-top-1 duration-300">
+                                  <div className="flex justify-between items-center mb-4">
                                       <div>
-                                          <span className="text-[10px] font-black text-blue-300 uppercase block mb-1">AI Recommendation</span>
-                                          <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border ${getConfidenceClass(row.aiSuggestion.confidenceScore)}`}>
-                                            {row.aiSuggestion.confidenceScore} Confidence
-                                          </span>
+                                          <div className={`inline-flex px-2 py-0.5 rounded-full text-[8px] font-black uppercase border tracking-tighter ${getConfidenceClass(row.aiSuggestion.confidenceScore)}`}>
+                                            {row.aiSuggestion.confidenceScore} Accuracy Prediction
+                                          </div>
                                       </div>
-                                      <button onClick={() => handleApplySuggestion(row.data.ticketIDsSequence, row.aiSuggestion!.clause)} className="px-2 py-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-md">Apply</button>
+                                      <button 
+                                        onClick={() => handleApplySuggestion(row.data.ticketIDsSequence, row.aiSuggestion!.clause)} 
+                                        className="px-4 py-2 text-[9px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all shadow-lg active:scale-95"
+                                      >
+                                        Map Clause
+                                      </button>
                                   </div>
-                                  <p className="text-blue-400 font-mono text-xs mt-2 font-bold">{row.aiSuggestion.clause}</p>
-                                  <p className="text-gray-500 text-[10px] italic mt-1 leading-snug">"{row.aiSuggestion.reason}"</p>
+                                  <div className="text-teal-400 font-mono text-[11px] font-black bg-teal-950/30 px-3 py-1.5 rounded-lg border border-teal-800/30 w-fit mb-3">
+                                    {row.aiSuggestion.clause}
+                                  </div>
+                                  <p className="text-gray-500 text-[10px] leading-relaxed italic font-medium">
+                                    "{row.aiSuggestion.reason}"
+                                  </p>
                               </div>
                            )}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                           <div className="flex justify-center">
-                               {row.status === 'error' ? <ShieldExclamationIcon className="w-5 h-5 text-red-500" /> : 
-                                row.status === 'warning' ? <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" /> : 
-                                <ShieldCheckIcon className="w-5 h-5 text-green-500" />}
+                        <td className="px-6 py-6 text-center align-top">
+                           <div className="flex justify-center pt-1 group-hover:scale-125 transition-transform">
+                               {row.status === 'error' ? <ShieldExclamationIcon className="w-6 h-6 text-red-500" /> : 
+                                row.status === 'warning' ? <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" /> : 
+                                <ShieldCheckIcon className="w-6 h-6 text-green-500" />}
                            </div>
                         </td>
                       </tr>
@@ -460,13 +495,13 @@ Return a JSON object with a "suggestions" array. Each suggestion must include:
                </table>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-700">
-              <button onClick={() => setAnalysis(null)} disabled={commitStatus.type !== 'idle'} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-black uppercase text-[10px] tracking-widest rounded-lg transition-colors">Discard Batch</button>
+            <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-gray-800">
+              <button onClick={() => setAnalysis(null)} disabled={commitStatus.type !== 'idle'} className="px-8 py-3 bg-gray-900 border border-gray-700 hover:bg-gray-800 text-gray-500 hover:text-white font-black uppercase text-[10px] tracking-widest rounded-xl transition-all">Reset Buffer</button>
               <div className="flex-grow"></div>
-              <button onClick={() => handleCommit('append')} disabled={commitStatus.type !== 'idle'} className="px-10 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[10px] tracking-widest rounded-lg shadow-xl shadow-blue-900/40 transition-all flex items-center justify-center gap-2">
-                {commitStatus.type === 'committing' ? <span className="animate-pulse">Commiting...</span> : <><DocumentCheckIcon className="w-4 h-4" /><span>Append Verified</span></>}
+              <button onClick={() => handleCommit('append')} disabled={commitStatus.type !== 'idle'} className="px-10 py-3 bg-brand-600 hover:bg-brand-500 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-xl shadow-brand-900/40 transition-all flex items-center justify-center gap-3">
+                {commitStatus.type === 'committing' ? <span className="animate-pulse">Committing Ledger...</span> : <><DocumentCheckIcon className="w-4 h-4" /><span>Append to History</span></>}
               </button>
-              <button onClick={() => handleCommit('replace')} disabled={commitStatus.type !== 'idle'} className="px-10 py-3 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest rounded-lg shadow-xl shadow-red-900/40 transition-all">Replace History</button>
+              <button onClick={() => handleCommit('replace')} disabled={commitStatus.type !== 'idle'} className="px-10 py-3 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-xl shadow-red-900/40 transition-all border border-red-500/20">Overwrite Database</button>
             </div>
           </div>
         )}

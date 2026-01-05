@@ -23,9 +23,9 @@ export const generatePdfFromElement = async (
   const originalBoxShadow = element.style.boxShadow;
   const originalBorderRadius = element.style.borderRadius;
 
-  // Force a standard "Document Width" (approx 1024px for good high-res density)
+  // Force a standard "Document Width" (approx 1100px for good high-res density and spacing)
   // This prevents the PDF layout from changing based on the user's monitor resolution.
-  const targetWidth = 1024;
+  const targetWidth = 1100;
   element.style.width = `${targetWidth}px`;
   element.style.maxWidth = 'none';
   element.style.boxShadow = 'none';
@@ -34,26 +34,31 @@ export const generatePdfFromElement = async (
   try {
     // Capture the element using html2canvas
     const canvas = await html2canvas(element, {
-      scale: 2, // 2x scale for retina-quality text and charts
+      scale: 1.5, // Reduced from 2x to prevent memory issues on large reports while keeping high clarity
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
       width: targetWidth,
-      windowWidth: targetWidth,
+      windowWidth: targetWidth + 50, // Slight buffer
       // Ensure we capture the full scrollable height
       height: element.scrollHeight,
       onclone: (clonedDoc) => {
-        // Optional: Perform additional styling on the cloned document if needed
         const clonedElement = clonedDoc.getElementById(elementId);
         if (clonedElement) {
-            clonedElement.style.padding = '40px'; // Standard document padding
+            clonedElement.style.padding = '40px'; 
+            // Ensure every item inside wraps correctly in the clone
+            const wrapItems = clonedElement.querySelectorAll('.wrap-safe');
+            wrapItems.forEach(item => {
+                (item as HTMLElement).style.whiteSpace = 'normal';
+                (item as HTMLElement).style.overflowWrap = 'break-word';
+            });
         }
       }
     });
 
     onProgress?.(60);
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
     
     // Create A4 PDF (210mm x 297mm)
     const pdf = new jsPDF({

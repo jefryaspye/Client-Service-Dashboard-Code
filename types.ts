@@ -164,6 +164,7 @@ export interface CheckSheetItem {
   requirement: string;
   isoClause: string;
   status: 'Pass' | 'Fail' | 'N/A';
+  criticality: 'Standard' | 'Critical' | 'Vital';
   remarks: string;
 }
 

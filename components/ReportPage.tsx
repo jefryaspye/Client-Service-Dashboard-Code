@@ -100,19 +100,19 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
         {/* Executive Summary Stats - Responsive Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-16 break-inside-avoid">
           <div className="bg-gray-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 flex flex-col items-center text-center shadow-sm">
-            <div className="text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Volume</div>
+            <div className="text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 text-wrap-none">Total Volume</div>
             <div className="text-3xl md:text-5xl font-black text-gray-900">{total}</div>
           </div>
           <div className="bg-green-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-green-100 flex flex-col items-center text-center shadow-sm">
-            <div className="text-[8px] md:text-[10px] font-black text-green-600 uppercase tracking-widest mb-2">Resolved</div>
+            <div className="text-[8px] md:text-[10px] font-black text-green-600 uppercase tracking-widest mb-2 text-wrap-none">Resolved</div>
             <div className="text-3xl md:text-5xl font-black text-green-700">{closed}</div>
           </div>
           <div className="bg-red-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-red-100 flex flex-col items-center text-center shadow-sm">
-            <div className="text-[8px] md:text-[10px] font-black text-red-600 uppercase tracking-widest mb-2">High Risk</div>
+            <div className="text-[8px] md:text-[10px] font-black text-red-600 uppercase tracking-widest mb-2 text-wrap-none">High Risk</div>
             <div className="text-3xl md:text-5xl font-black text-red-700">{critical}</div>
           </div>
           <div className="bg-brand-50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-brand-100 flex flex-col items-center text-center shadow-sm">
-            <div className="text-[8px] md:text-[10px] font-black text-brand-600 uppercase tracking-widest mb-2">Resolution %</div>
+            <div className="text-[8px] md:text-[10px] font-black text-brand-600 uppercase tracking-widest mb-2 text-wrap-none">Resolution %</div>
             <div className="text-3xl md:text-5xl font-black text-brand-700">
               {total > 0 ? Math.round((closed / total) * 100) : 0}%
             </div>
@@ -158,7 +158,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
                         <ShieldCheckIcon className="w-32 h-32" />
                     </div>
                     <h5 className="font-black uppercase text-[9px] tracking-[0.25em] mb-4 text-brand-400">Certification Logic</h5>
-                    <p className="text-sm leading-relaxed italic font-bold text-gray-100 mb-8">
+                    <p className="text-sm leading-relaxed italic font-bold text-gray-100 mb-8 wrap-safe">
                         "Operational workflows demonstrate alignment with ISO 9001 and ISO 41001 requirements. Technical documentation is verified as complete for the auditing cycle."
                     </p>
                     <div className="pt-6 border-t border-white/10 flex justify-between items-center">
@@ -180,13 +180,13 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
                     <div key={t.id} className="p-6 md:p-8 border-l-[6px] md:border-l-[8px] border-brand-600 bg-gray-50 rounded-r-[1.5rem] md:rounded-r-[2rem] shadow-sm flex flex-col break-inside-avoid">
                         <div className="flex flex-col sm:flex-row justify-between items-start mb-6 gap-4">
                             <div className="flex-1 pr-4">
-                                <h5 className="font-black text-gray-900 text-base md:text-lg uppercase tracking-tight leading-tight">{t.item}</h5>
+                                <h5 className="font-black text-gray-900 text-base md:text-lg uppercase tracking-tight leading-tight wrap-safe">{t.item}</h5>
                                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-                                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center">
+                                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center wrap-safe">
                                       <span className="w-1 h-1 rounded-full bg-gray-300 mr-2"></span>
                                       Zone: {t.zone || 'N/A'}
                                    </span>
-                                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center">
+                                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center wrap-safe">
                                       <span className="w-1 h-1 rounded-full bg-gray-300 mr-2"></span>
                                       Unit: {t.unit || 'N/A'}
                                    </span>
@@ -198,12 +198,12 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 text-[8px] md:text-[9px] text-gray-500 uppercase font-black tracking-[0.1em] md:tracking-[0.2em] bg-white p-5 rounded-xl border border-gray-100">
                             <div><span className="text-gray-300 block mb-1">Status</span> <span className="text-gray-900 font-black">{t.status}</span></div>
                             <div><span className="text-gray-300 block mb-1">Priority</span> <span className="text-red-600 font-black">{t.priority}</span></div>
-                            <div><span className="text-gray-300 block mb-1">Assigned</span> <span className="text-gray-900 font-black truncate block">{t.assignee}</span></div>
-                            <div><span className="text-gray-300 block mb-1">Regulatory</span> <span className="text-brand-600 font-black truncate block">{t.isoClause}</span></div>
+                            <div><span className="text-gray-300 block mb-1">Assigned</span> <span className="text-gray-900 font-black wrap-safe block">{t.assignee}</span></div>
+                            <div><span className="text-gray-300 block mb-1">Regulatory</span> <span className="text-brand-600 font-black wrap-safe block">{t.isoClause}</span></div>
                         </div>
 
                         {t.remarks && (
-                            <div className="mt-6 text-xs text-gray-600 italic border-t border-gray-200 pt-6 leading-relaxed">
+                            <div className="mt-6 text-xs text-gray-600 italic border-t border-gray-200 pt-6 leading-relaxed wrap-safe">
                                 <span className="not-italic font-black text-gray-400 text-[10px] uppercase block mb-2 tracking-widest">Resolution Notes:</span>
                                 "{t.remarks}"
                             </div>
@@ -259,6 +259,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ dailyData, historicalData }) =>
             padding: 0 !important;
           }
           ::-webkit-scrollbar { display: none; }
+          .report-text-scale { font-size: 10pt !important; }
         }
       ` }} />
     </div>

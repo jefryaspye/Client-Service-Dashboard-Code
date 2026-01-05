@@ -43,9 +43,6 @@
                 100: '#f1f5f9',
                 50: '#f8fafc',
               }
-            },
-            backgroundImage: {
-              'glass-gradient': 'linear-gradient(to bottom right, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02))',
             }
           }
         }
@@ -58,6 +55,12 @@
         -moz-osx-font-smoothing: grayscale;
         overflow-x: hidden;
       }
+      
+      /* Fluid Typography Base */
+      :root {
+        --base-font-size: clamp(14px, 1.2vw, 18px);
+      }
+
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -69,19 +72,30 @@
         background: #334155;
         border-radius: 10px;
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #475569;
-      }
+      
       .glass-card {
         background: rgba(30, 41, 59, 0.7);
         backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.05);
       }
-      .neon-border {
-        box-shadow: 0 0 15px rgba(56, 171, 247, 0.1);
+
+      /* Fix Word Cutting/Clipping */
+      .wrap-safe {
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal !important;
       }
+
+      /* Auto-scaling text for Report/PDF visibility */
+      .report-text-scale {
+        font-size: var(--base-font-size);
+      }
+
       @media print {
         .print-none { display: none !important; }
+        body { background: white !important; color: black !important; }
+        .wrap-safe { white-space: normal !important; overflow-wrap: anywhere !important; }
       }
     </style>
   <script type="importmap">

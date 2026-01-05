@@ -83,6 +83,7 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiProposal, setAiProposal] = useState<{ data: string, insight: string, suggestions?: IsoSuggestion[], logicOptimizations?: LogicSuggestion[] } | null>(null);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -160,9 +161,7 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
     }
   };
 
-  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const processFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
         const content = e.target?.result as string;
@@ -172,7 +171,36 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
         setTimeout(() => setMessage(null), 3000);
     };
     reader.readAsText(file);
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    processFile(file);
     if (event.target) event.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        processFile(file);
+      } else {
+        setMessage({ type: 'error', text: 'Format mismatch. Please provide a CSV file.' });
+        setTimeout(() => setMessage(null), 3000);
+      }
+    }
   };
 
   const exportData = (targetFormat: 'csv' | 'json', sourceData?: string) => {
@@ -285,8 +313,25 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
   };
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 pb-20">
-      <div className="flex-grow bg-gray-800 rounded-[2.5rem] shadow-2xl p-8 border border-gray-700/50">
+    <div 
+      className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 pb-20"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div className={`relative flex-grow bg-gray-800 rounded-[2.5rem] shadow-2xl p-8 border transition-all duration-300 ${isDragging ? 'border-brand-500 ring-4 ring-brand-500/20' : 'border-gray-700/50'}`}>
+        
+        {/* Drag and Drop Overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-30 bg-brand-950/40 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center border-4 border-dashed border-brand-500 animate-in fade-in duration-200">
+            <div className="w-24 h-24 bg-brand-600 rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-brand-500/40 animate-bounce">
+              <UploadIcon className="w-12 h-12 text-white" />
+            </div>
+            <h3 className="text-2xl font-black text-white uppercase tracking-widest">Release to Import CSV</h3>
+            <p className="text-brand-300 font-bold mt-2 uppercase tracking-tighter text-sm">System ready for infrastructure record injection</p>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-10 gap-6">
             <div>
                 <div className="flex items-center gap-3">
@@ -303,8 +348,8 @@ const DatabasePage: React.FC<DatabasePageProps> = ({ currentCSV, onSave, onReset
                 </div>
             )}
             <div className="flex items-center space-x-3">
-                <button onClick={() => fileInputRef.current?.click()} className="hidden sm:flex items-center bg-gray-950 border border-gray-800 rounded-2xl px-5 py-3 text-gray-400 hover:text-white hover:bg-gray-800 transition-all">
-                    <UploadIcon className="w-4 h-4 mr-2" />
+                <button onClick={() => fileInputRef.current?.click()} className="hidden sm:flex items-center bg-gray-950 border border-gray-800 rounded-2xl px-5 py-3 text-gray-400 hover:text-white hover:bg-gray-800 transition-all group">
+                    <UploadIcon className="w-4 h-4 mr-2 group-hover:-translate-y-0.5 transition-transform" />
                     <span className="text-[10px] font-black uppercase tracking-widest">Import CSV</span>
                 </button>
                 <div className="hidden sm:flex items-center bg-gray-950 border border-gray-800 rounded-2xl p-1">
