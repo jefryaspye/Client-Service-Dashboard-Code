@@ -11,7 +11,8 @@ import {
   ShieldCheckIcon, 
   PuzzleIcon, 
   ClipboardCheckIcon,
-  ShieldExclamationIcon
+  ShieldExclamationIcon,
+  SparklesIcon
 } from './icons.tsx';
 import type { ViewType } from '../types.ts';
 
@@ -72,6 +73,7 @@ const Header: React.FC<HeaderProps> = ({
               <NavButton view="reports" label="Reports" icon={PrinterIcon} />
               <NavButton view="checksheet" label="Check Sheet" icon={ClipboardCheckIcon} />
               <NavButton view="hirarc" label="HIRARC" icon={ShieldExclamationIcon} />
+              <NavButton view="ml" label="ML Lab" icon={SparklesIcon} />
               <NavButton view="compliance" label="ISO" icon={ShieldCheckIcon} />
               <NavButton view="fmea" label="FMEA" icon={PuzzleIcon} />
               <NavButton view="operations" label="Ops" icon={ClockIcon} />

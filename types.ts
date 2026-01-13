@@ -156,6 +156,8 @@ export interface HirarcRecord {
   riskCategory: 'Low' | 'Medium' | 'High' | 'Extreme';
   controlMeasures: string;
   responsibility: string;
+  isoMapping?: string;
+  sourceTicketId?: string;
 }
 
 export interface CheckSheetItem {
@@ -177,4 +179,4 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
-export type ViewType = 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations' | 'fmea' | 'checksheet' | 'hirarc';
+export type ViewType = 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations' | 'fmea' | 'checksheet' | 'hirarc' | 'ml';

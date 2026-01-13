@@ -12,8 +12,7 @@ import {
   ClockIcon, 
   ChevronRightIcon,
   TicketIcon,
-  DatabaseIcon,
-  LinkIcon
+  DatabaseIcon
 } from './icons.tsx';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -63,9 +62,7 @@ const INITIAL_HIRARC: HirarcRecord[] = [
     riskLevel: 20,
     riskCategory: 'Extreme',
     controlMeasures: '1. Load redistribution across circuits.\n2. Implementation of RCD testing schedule.\n3. Restricted access to electrical risers.',
-    responsibility: 'Technical Lead',
-    isoMapping: 'ISO 41001 (Clause 8.1)',
-    sourceTicketId: '2032'
+    responsibility: 'Technical Lead'
   }
 ];
 
@@ -90,7 +87,7 @@ interface DetectedIncident {
 
 const HirarcPage: React.FC<{ historicalData: HistoricalTicket[] }> = ({ historicalData }) => {
   const [records, setRecords] = useState<HirarcRecord[]>(() => {
-    const saved = localStorage.getItem('app_hirarc_data_v2');
+    const saved = localStorage.getItem('app_hirarc_data');
     return saved ? JSON.parse(saved) : INITIAL_HIRARC;
   });
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -101,7 +98,7 @@ const HirarcPage: React.FC<{ historicalData: HistoricalTicket[] }> = ({ historic
   const [batchProgress, setBatchProgress] = useState<{ current: number, total: number } | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('app_hirarc_data_v2', JSON.stringify(records));
+    localStorage.setItem('app_hirarc_data', JSON.stringify(records));
   }, [records]);
 
   const detectedIncidents = useMemo(() => {
@@ -112,7 +109,7 @@ const HirarcPage: React.FC<{ historicalData: HistoricalTicket[] }> = ({ historic
       const text = `${t.subject} ${t.activities} ${t.description || ''} ${t.tags}`.toLowerCase();
       for (const hk of HAZARD_KEYWORDS) {
         if (text.includes(hk.kw) && !seen.has(t.ticketIDsSequence)) {
-          const isRegistered = records.some(r => r.sourceTicketId === t.ticketIDsSequence);
+          const isRegistered = records.some(r => r.cause.includes(t.ticketIDsSequence));
           if (!isRegistered) {
             detected.push({ ticket: t, keyword: hk.kw });
             seen.add(t.ticketIDsSequence);
@@ -168,12 +165,11 @@ Identify technical and operational safety triggers based on the subject, tags, a
 Generate a structured safety record:
 1. Work Activity: Precise title of the task or incident response.
 2. Hazard: The specific physical, chemical, or ergonomic danger.
-3. Cause: Detailed manifestation.
+3. Cause: Detailed manifestation (Reference ticket ID ${ticketRef || 'N/A'}).
 4. Effects: Human and operational impact (e.g., LTI, property damage).
 5. Risk Assessment (1-5): Likelihood and Severity.
 6. Control Measures: Multi-layer mitigation (Elimination, Engineering, Admin, PPE).
 7. Responsibility: Role responsible for maintaining the control.
-8. ISO Mapping: The most relevant ISO standard and clause (e.g., ISO 45001 Clause 8.1.1).
 
 Return strictly as JSON.`;
 
@@ -192,10 +188,9 @@ Return strictly as JSON.`;
               likelihood: { type: Type.NUMBER },
               severity: { type: Type.NUMBER },
               controlMeasures: { type: Type.STRING },
-              responsibility: { type: Type.STRING },
-              isoMapping: { type: Type.STRING }
+              responsibility: { type: Type.STRING }
             },
-            required: ["workActivity", "hazard", "cause", "effect", "likelihood", "severity", "controlMeasures", "responsibility", "isoMapping"]
+            required: ["workActivity", "hazard", "cause", "effect", "likelihood", "severity", "controlMeasures", "responsibility"]
           }
         }
       });
@@ -209,16 +204,14 @@ Return strictly as JSON.`;
         id: `h-auto-${Date.now()}-${ticketRef || 'manual'}`,
         workActivity: result.workActivity,
         hazard: result.hazard,
-        cause: result.cause,
+        cause: ticketRef ? `Ticket Ref: ${ticketRef} - ${result.cause}` : result.cause,
         effect: result.effect,
         likelihood: likelihood,
         severity: severity,
         riskLevel: rpn,
         riskCategory: getRiskCategory(rpn),
         controlMeasures: result.controlMeasures,
-        responsibility: result.responsibility,
-        isoMapping: result.isoMapping || ticketData?.isoClause || 'N/A',
-        sourceTicketId: ticketRef
+        responsibility: result.responsibility
       };
 
       setRecords(prev => [newRecord, ...prev]);
@@ -292,12 +285,12 @@ Return strictly as JSON.`;
           </button>
           <button 
             onClick={() => {
-              const csv = "Activity,Hazard,Likelihood,Severity,Risk,Category,Source,Regulatory,Controls\n" + records.map(r => `"${r.workActivity}","${r.hazard}",${r.likelihood},${r.severity},${r.riskLevel},"${r.riskCategory}","${r.sourceTicketId || 'Manual'}","${r.isoMapping || 'N/A'}","${r.controlMeasures.replace(/"/g, '""')}"`).join('\n');
+              const csv = "Activity,Hazard,Likelihood,Severity,Risk,Category,Controls\n" + records.map(r => `"${r.workActivity}","${r.hazard}",${r.likelihood},${r.severity},${r.riskLevel},"${r.riskCategory}","${r.controlMeasures.replace(/"/g, '""')}"`).join('\n');
               const blob = new Blob([csv], { type: 'text/csv' });
               const url = URL.createObjectURL(blob);
               const link = document.createElement('a');
               link.href = url;
-              link.download = `hirarc_register_v2_${new Date().toISOString().split('T')[0]}.csv`;
+              link.download = `hirarc_register_${new Date().toISOString().split('T')[0]}.csv`;
               link.click();
             }}
             className="px-6 py-3 bg-gray-900 border border-gray-700 hover:bg-gray-800 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2"
@@ -341,7 +334,7 @@ Return strictly as JSON.`;
               <div className="flex-grow overflow-y-auto custom-scrollbar p-8 bg-gray-900/30">
                   <div className="space-y-3">
                       {filteredTickets.length > 0 ? filteredTickets.map(t => {
-                          const isAlreadyMapped = records.some(r => r.sourceTicketId === t.ticketIDsSequence);
+                          const isAlreadyMapped = records.some(r => r.cause.includes(t.ticketIDsSequence));
                           return (
                             <button 
                                 key={t.ticketIDsSequence}
@@ -591,8 +584,8 @@ Return strictly as JSON.`;
                 <thead className="bg-gray-950/50 text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">
                     <tr>
                         <th className="px-8 py-6 w-2 text-center"></th>
-                        <th className="px-8 py-6">Activity & Hazard Mapping</th>
-                        <th className="px-8 py-6">Source & Regulatory</th>
+                        <th className="px-8 py-6">Activity & Hazard</th>
+                        <th className="px-8 py-6">Incident Path & Effect</th>
                         <th className="px-8 py-6 text-center">L</th>
                         <th className="px-8 py-6 text-center">S</th>
                         <th className="px-8 py-6 text-center">RPN</th>
@@ -619,27 +612,10 @@ Return strictly as JSON.`;
                                 <div className="text-[9px] text-brand-400 font-black uppercase tracking-widest mt-2 bg-brand-950/30 w-fit px-2 py-0.5 rounded border border-brand-900/50">Hazard: {r.hazard}</div>
                             </td>
                             <td className="px-8 py-7 align-top min-w-[280px]">
-                                <div className="flex flex-col gap-2">
-                                  {r.sourceTicketId ? (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-950 rounded-lg border border-gray-800 w-fit">
-                                      <LinkIcon className="w-3 h-3 text-blue-400" />
-                                      <span className="text-[10px] font-mono font-black text-blue-400">TICKET: #{r.sourceTicketId}</span>
-                                    </div>
-                                  ) : (
-                                    <div className="text-[9px] text-gray-600 font-bold uppercase italic px-3 py-1.5 bg-gray-950/50 rounded-lg border border-gray-800/50 w-fit">Ad-hoc Source</div>
-                                  )}
-                                  
-                                  <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-950/20 rounded-lg border border-teal-800/30 w-fit">
-                                    <ShieldCheckIcon className="w-3 h-3 text-teal-400" />
-                                    <input 
-                                      value={r.isoMapping || 'N/A'}
-                                      onChange={e => updateRecord(r.id, { isoMapping: e.target.value })}
-                                      className="bg-transparent border-0 outline-none text-teal-400 font-mono font-black text-[10px] w-full min-w-[120px]"
-                                      placeholder="Regulatory Mapping..."
-                                    />
-                                  </div>
-
-                                  <div className="text-gray-500 font-medium leading-relaxed text-[11px] mt-2 italic">"{r.cause}"</div>
+                                <div className="text-gray-300 font-medium leading-relaxed text-xs">{r.cause}</div>
+                                <div className="text-[9px] text-gray-600 mt-3 font-bold uppercase flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500/50"></span>
+                                    Potential: {r.effect}
                                 </div>
                             </td>
                             <td className="px-8 py-7 text-center align-top">
@@ -665,6 +641,7 @@ Return strictly as JSON.`;
                                     {currentRiskLevel}
                                 </div>
                                 <div className="text-[8px] font-black uppercase mt-2 opacity-50 tracking-widest">{currentRiskCategory}</div>
+                                <div className="text-[7px] font-mono text-gray-700 mt-1 uppercase">({r.likelihood}×{r.severity})</div>
                             </td>
                             <td className="px-8 py-7 align-top min-w-[380px]">
                                 <textarea 

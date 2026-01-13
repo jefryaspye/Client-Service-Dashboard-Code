@@ -12,6 +12,7 @@ import OperationsGuide from './components/OperationsGuide.tsx';
 import FmeaPage from './components/FmeaPage.tsx';
 import CheckSheetPage from './components/CheckSheetPage.tsx';
 import HirarcPage from './components/HirarcPage.tsx';
+import MachineLearningLab from './components/MachineLearningLab.tsx';
 import type { ViewType } from './types.ts';
 
 const App: React.FC = () => {
@@ -107,6 +108,10 @@ const App: React.FC = () => {
 
         {currentView === 'hirarc' && (
             <HirarcPage historicalData={historicalData} />
+        )}
+
+        {currentView === 'ml' && (
+            <MachineLearningLab historicalData={historicalData} />
         )}
 
         {currentView === 'compliance' && (

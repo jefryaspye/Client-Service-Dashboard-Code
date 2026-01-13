@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon, BeakerIcon, DatabaseIcon, ChevronRightIcon, SwitchVerticalIcon, DownloadIcon, ClockIcon } from './icons.tsx';
-import { parseCSV, jsonToCSV } from '../hooks/useTicketData.ts';
+import { UploadIcon, DocumentCheckIcon, ExclamationTriangleIcon, ShieldCheckIcon, ChartBarIcon, BeakerIcon, DatabaseIcon, ChevronRightIcon, SwitchVerticalIcon, DownloadIcon, ClockIcon } from './icons';
+import { parseCSV, jsonToCSV } from '../hooks/useTicketData';
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface DatabasePageProps {
