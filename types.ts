@@ -179,4 +179,4 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
-export type ViewType = 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations' | 'fmea' | 'checksheet' | 'hirarc' | 'ml';
+export type ViewType = 'dashboard' | 'database' | 'staging' | 'reports' | 'compliance' | 'operations' | 'fmea' | 'checksheet' | 'hirarc' | 'ml' | 'docs';

@@ -12,7 +12,8 @@ import {
   PuzzleIcon, 
   ClipboardCheckIcon,
   ShieldExclamationIcon,
-  SparklesIcon
+  SparklesIcon,
+  BookOpenIcon
 } from './icons.tsx';
 import type { ViewType } from '../types.ts';
 
@@ -37,25 +38,25 @@ const Header: React.FC<HeaderProps> = ({
   currentView,
   onViewChange
 }) => {
-  const NavButton = ({ view, label, icon: Icon }: { view: ViewType, label: string, icon: any }) => (
+  const NavButton = ({ view, label, icon: Icon, compact = false }: { view: ViewType, label: string, icon: any, compact?: boolean }) => (
     <button
       onClick={() => onViewChange(view)}
-      className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2.5 transition-all duration-200 ${
+      className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-tight flex items-center space-x-2 transition-all duration-200 ${
         currentView === view 
           ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/40 ring-1 ring-brand-400/30' 
-          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          : 'text-gray-500 hover:text-white hover:bg-gray-800'
       }`}
     >
-      <Icon className={`w-4 h-4 ${currentView === view ? 'text-white' : 'text-gray-500'}`} />
-      <span>{label}</span>
+      <Icon className={`w-3.5 h-3.5 ${currentView === view ? 'text-white' : 'text-gray-600'}`} />
+      {!compact && <span>{label}</span>}
     </button>
   );
 
   return (
     <header className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-50 print-none">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          <div className="flex items-center space-x-12">
+      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-24">
+          <div className="flex items-center space-x-8">
             <div className="flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/20">
@@ -63,22 +64,36 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
                 <div className="flex flex-col">
                   <h1 className="text-lg font-black text-white tracking-tight leading-none uppercase">Enterprise</h1>
-                  <span className="text-[10px] text-brand-400 font-black uppercase tracking-widest mt-0.5">Service Intelligence</span>
+                  <span className="text-[10px] text-brand-400 font-black uppercase tracking-widest mt-0.5">Intelligence</span>
                 </div>
               </div>
             </div>
             
-            <nav className="hidden xl:flex items-center space-x-1 p-1 bg-gray-950/50 rounded-2xl border border-gray-800">
-              <NavButton view="dashboard" label="Performance" icon={ChartBarIcon} />
-              <NavButton view="reports" label="Reports" icon={PrinterIcon} />
-              <NavButton view="checksheet" label="Check Sheet" icon={ClipboardCheckIcon} />
-              <NavButton view="hirarc" label="HIRARC" icon={ShieldExclamationIcon} />
-              <NavButton view="ml" label="ML Lab" icon={SparklesIcon} />
-              <NavButton view="compliance" label="ISO" icon={ShieldCheckIcon} />
-              <NavButton view="fmea" label="FMEA" icon={PuzzleIcon} />
-              <NavButton view="operations" label="Ops" icon={ClockIcon} />
-              <NavButton view="staging" label="Lab" icon={BeakerIcon} />
-              <NavButton view="database" label="Dataset" icon={DatabaseIcon} />
+            <nav className="hidden xl:flex items-center gap-6">
+              {/* Main Operations Group */}
+              <div className="flex flex-col space-y-1.5">
+                <span className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] ml-2">Core Operations</span>
+                <div className="flex items-center space-x-1 p-1 bg-gray-950/40 rounded-2xl border border-gray-800/60">
+                  <NavButton view="dashboard" label="Performance" icon={ChartBarIcon} />
+                  <NavButton view="reports" label="Reports" icon={PrinterIcon} />
+                  <NavButton view="checksheet" label="Check Sheet" icon={ClipboardCheckIcon} />
+                  <NavButton view="hirarc" label="HIRARC" icon={ShieldExclamationIcon} />
+                  <NavButton view="compliance" label="ISO" icon={ShieldCheckIcon} />
+                  <NavButton view="fmea" label="FMEA" icon={PuzzleIcon} />
+                </div>
+              </div>
+
+              {/* System Management Group */}
+              <div className="flex flex-col space-y-1.5">
+                <span className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] ml-2">System Control</span>
+                <div className="flex items-center space-x-1 p-1 bg-gray-950/40 rounded-2xl border border-gray-800/60">
+                  <NavButton view="ml" label="ML Lab" icon={SparklesIcon} />
+                  <NavButton view="operations" label="Ops" icon={ClockIcon} />
+                  <NavButton view="staging" label="Lab" icon={BeakerIcon} />
+                  <NavButton view="database" label="Dataset" icon={DatabaseIcon} />
+                  <NavButton view="docs" label="Architect" icon={BookOpenIcon} />
+                </div>
+              </div>
             </nav>
           </div>
 
@@ -109,7 +124,7 @@ const Header: React.FC<HeaderProps> = ({
             )}
             
             {lastUpdated && (
-              <div className="hidden md:flex flex-col items-end">
+              <div className="hidden lg:flex flex-col items-end">
                 <span className="text-[9px] text-gray-600 font-black uppercase tracking-widest">Last Synced</span>
                 <div className="flex items-center space-x-1.5 text-xs text-brand-400 font-mono font-bold mt-0.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse"></div>

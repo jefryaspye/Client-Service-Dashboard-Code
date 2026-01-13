@@ -13,6 +13,7 @@ import FmeaPage from './components/FmeaPage.tsx';
 import CheckSheetPage from './components/CheckSheetPage.tsx';
 import HirarcPage from './components/HirarcPage.tsx';
 import MachineLearningLab from './components/MachineLearningLab.tsx';
+import DocumentationArchitect from './components/DocumentationArchitect.tsx';
 import type { ViewType } from './types.ts';
 
 const App: React.FC = () => {
@@ -100,6 +101,10 @@ const App: React.FC = () => {
               dailyData={currentDailyData} 
               historicalData={historicalData} 
             />
+        )}
+
+        {currentView === 'docs' && (
+            <DocumentationArchitect />
         )}
 
         {currentView === 'checksheet' && (
